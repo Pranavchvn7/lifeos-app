@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🌱 LifeOS — Personal Growth Tracker.
+# 🌱 LifeOS — Personal Growth Tracker
 
 **A 90-day discipline and habit tracker with daily checklists, a journal, goals, and a progress board that charts your week, month, and whole program.**
 

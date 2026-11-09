@@ -21,3 +21,6 @@ Production trusts only its own addresses. Preview deployments also accept `*.ver
 - `/api/auth/diagnostics` shows only yes/no flags, `"database": "connected"` and `"databasePooled": true` (Neon pooled connection string).
 - Sign up, sign out, sign in, delete the test account.
 - The automated e2e tests report on the commit (`e2e / smoke (preview)` / `(production)`).
+
+## Build-time switches that must stay off
+- `VITE_GROK_EXTENSIONS` — leave **unset**. It loads a script from grok.com into every page; it is only meant for the Grok builder.

@@ -207,9 +207,14 @@ export function readGrokProjectId() {
   return String(fromProcess ?? "").trim();
 }
 
+/**
+ * The Grok builder's `extensions.js` is a script loaded from grok.com into every visitor's page. It is only useful
+ * inside the Grok builder, so it is OFF unless a build explicitly sets VITE_GROK_EXTENSIONS=1. (It used to be on
+ * unless set to 0, which put a third-party script on every deployed site.)
+ */
 export function readGrokExtensionsEnabled() {
   const fromProcess = typeof process !== "undefined" ? process.env?.VITE_GROK_EXTENSIONS : "";
-  return String(fromProcess ?? "").trim() !== "0";
+  return String(fromProcess ?? "").trim() === "1";
 }
 
 export function readXCreator() {

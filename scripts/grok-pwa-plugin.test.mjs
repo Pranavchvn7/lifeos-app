@@ -19,6 +19,9 @@ import {
 } from "./grok-pwa-shared.mjs";
 import { renderInstallPage } from "./grok-pwa-plugin.mjs";
 
+// The extensions script is OFF by default now; these tests exercise the enabled path, so opt in explicitly.
+process.env.VITE_GROK_EXTENSIONS = "1";
+
 const TEMPLATE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 test("injects before </head>", () => {
@@ -539,3 +542,19 @@ test("vite plugin bakes og identity as a virtual module", () => {
   assert.match(plugin, /snapshotOgIdentity/);
 });
 
+
+test("the grok.com extensions script is off unless a build sets VITE_GROK_EXTENSIONS=1", async () => {
+  const { readGrokExtensionsEnabled } = await import("./grok-pwa-shared.mjs");
+  const saved = process.env.VITE_GROK_EXTENSIONS;
+  try {
+    delete process.env.VITE_GROK_EXTENSIONS;
+    assert.equal(readGrokExtensionsEnabled(), false);
+    process.env.VITE_GROK_EXTENSIONS = "0";
+    assert.equal(readGrokExtensionsEnabled(), false);
+    process.env.VITE_GROK_EXTENSIONS = "1";
+    assert.equal(readGrokExtensionsEnabled(), true);
+  } finally {
+    if (saved === undefined) delete process.env.VITE_GROK_EXTENSIONS;
+    else process.env.VITE_GROK_EXTENSIONS = saved;
+  }
+});

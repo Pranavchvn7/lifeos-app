@@ -207,10 +207,10 @@ export function readGrokProjectId() {
   return String(fromProcess ?? "").trim();
 }
 
-export function readGrokExtensionsEnabled() {
-  const fromProcess = typeof process !== "undefined" ? process.env?.VITE_GROK_EXTENSIONS : "";
-  return String(fromProcess ?? "").trim() !== "0";
-}
+   export function readGrokExtensionsEnabled() {
+     const fromProcess = typeof process !== "undefined" ? process.env?.VITE_GROK_EXTENSIONS : "";
+          return String(fromProcess ?? "").trim() === "1";
+   }
 
 export function readXCreator() {
   const fromProcess = typeof process !== "undefined" ? process.env?.X_CREATOR : "";

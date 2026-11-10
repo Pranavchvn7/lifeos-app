@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { createFileRoute, Navigate, useRouter } from "@tanstack/react-router";
-import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
+import { authClient, authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { BootScreen } from "@/components/lifeos/boot-screen";
 
@@ -46,7 +46,6 @@ function brokerSignInAvailable(): boolean {
 
 function LoginCard() {
   const router = useRouter();
-  const [showBroker, setShowBroker] = useState(false);
   useEffect(() => setShowBroker(brokerSignInAvailable()), []);
   const [mode, setMode] = useState<"in" | "up">("in");
   const [name, setName] = useState("");
@@ -196,27 +195,6 @@ function LoginCard() {
                 </button>
               </form>
 
-              {showBroker ? (
-                <>
-              <div className="my-4 flex items-center gap-3 text-xs uppercase tracking-wide text-subtle">
-                <span className="h-px flex-1 bg-line" />
-                or
-                <span className="h-px flex-1 bg-line" />
-              </div>
-              <div className="space-y-2">
-                {GROK_PROVIDERS.map((provider) => (
-                  <button
-                    key={provider.providerId}
-                    type="button"
-                    className="h-11 w-full rounded-md border border-line bg-paper text-sm font-medium text-fg"
-                    onClick={() => signIn(provider.providerId, { callbackURL: "/" })}
-                  >
-                    Continue with {provider.label}
-                  </button>
-                ))}
-              </div>
-                </>
-              ) : null}
             </>
           ) : (
             <p className="text-sm text-muted">Sign-in is disabled.</p>

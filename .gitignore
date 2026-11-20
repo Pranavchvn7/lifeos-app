@@ -1,0 +1,25 @@
+# dependencies
+node_modules/
+
+# build output
+.vercel/
+.output/
+.nitro/
+dist/
+.tanstack/
+*.tsbuildinfo
+
+# secrets - never commit these
+.env
+.env.*
+!.env.example
+
+# local test output / editor / OS files
+coverage/
+playwright-report/
+test-results/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log

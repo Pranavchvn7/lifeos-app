@@ -19,6 +19,8 @@ function crc32(bytes: Uint8Array): number {
 
 function xmlEscape(text: string): string {
   return text
+    // Control characters are illegal in XML 1.0, so they are dropped on purpose.
+    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -38,7 +40,7 @@ function columnName(index: number): string {
 }
 
 function safeSheetName(name: string, used: Set<string>): string {
-  let base = name.replace(/[\\/?*[\]:]/g, " ").trim().slice(0, 31) || "Sheet";
+  const base = name.replace(/[\\/?*[\]:]/g, " ").trim().slice(0, 31) || "Sheet";
   let candidate = base;
   let n = 2;
   while (used.has(candidate.toLowerCase())) {

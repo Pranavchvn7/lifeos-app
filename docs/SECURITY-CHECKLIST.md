@@ -37,7 +37,7 @@ Prisma is **not used** here: the app talks to Postgres with `pg` and parameteris
 | Phase 8b, PR 1 | Content-Security-Policy + HSTS headers | `app-patch-1-csp-hsts.zip` |
 | Phase 8b, PR 2 | Remove the unused Grok login; better-auth 1.6 → 1.7.14 (closes the Dependabot alerts) | `app-patch-2-auth-upgrade.zip` |
 | Patch 3 (not built yet) | Rate limit ON in staging, bypassed by a secret test header | after Patch 2 is live |
-| Optional | Rate-limit counters in the database (shared across instances) or a Vercel Firewall rule | guide 4.2 |
+| Done (Nov 2026) | Rate-limit counters in the database, shared across instances | `docs/SECURITY-REVIEW-2026-11.md` |
 | Optional | Stricter CSP with nonces; remove unused scaffold code (`src/lib/multiplayer`, parts of `src/lib/app-data`) | later cleanup |
 | Every feature | Re-run the five-check security review | on request |
 

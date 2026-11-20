@@ -9,7 +9,7 @@ Scope: the app source as of version 4.3 plus these fixes (this repository's firs
 | 2 | Dot-files and personal files | A personal spreadsheet sits in the project folder; ignored by Git, but its history must be checked | **You check** |
 | 3 | Where user data goes | Own database only (+ Google Fonts); private text never leaves via share links | OK |
 | 4 | Error screens leaking internals | **3 leaks found** (error page, sign-in message, diagnostics page) + database errors on the wire | **Fixed** |
-| 5 | Sign-up / sign-in rate limit | Production ON but weak on serverless; staging OFF by design, cannot be switched off in production | **Check + optional upgrade** |
+| 5 | Sign-up / sign-in rate limit | Production ON but weak on serverless; staging OFF by design, cannot be switched off in production | **Upgraded in the November 2026 review** (counters now in the database, see `docs/SECURITY-REVIEW-2026-11.md`) |
 | 6 | Attacker's view of endpoints | **Any `*.vercel.app` site was a trusted origin in production**; no security headers | **Fixed** |
 
 ## 1. API keys and secrets in code
@@ -58,10 +58,10 @@ Automated tests now probe 5 malformed requests (non-JSON, wrong types, a 500 KB 
 ## 5. Sign-up / sign-in rate limit
 | Environment | Setting | Reality |
 |---|---|---|
-| **Production** | On (Better Auth default in production mode, about 3 attempts per 10 seconds per IP for sign-in/sign-up) | Counts are kept **in each server instance's memory**. Vercel runs many short-lived instances, so the limit is *partly* effective: an attacker who is spread across instances gets more tries than intended |
+| **Production** | On. Counters are kept in the database (table `rateLimit`, migration 0004), so every server instance shares them. Sign-in: 5 attempts per minute per IP; sign-up and the rest keep Better Auth's defaults | Verified locally: 5 wrong attempts answer 401, the 6th answers 429, and the block survives a server restart |
 | **Staging preview** | Off, because `AUTH_RATE_LIMIT=off` in the Preview environment (lets the e2e tests create accounts) | Intended. The code refuses this switch when `VERCEL_ENV=production`, even if it is set there by mistake |
 **Measure it, don't trust it.** New manual check: Actions → E2E tests → Run workflow → `suite = ratelimit`, `expect_rate_limit = on` with the production address, then again with `off` and a preview address. It sends 15 wrong sign-ins for a non-existent email and reports the statuses it got.
-**Stronger option (not applied, needs staging first):** store the counters in the database so every instance shares them. In `server.ts`, `rateLimit: { enabled: true, storage: "database" }` plus a `rateLimit` table (generate its exact SQL with `npx @better-auth/cli generate`). I did not apply it blind: a wrong table definition would break every sign-in.
+**Done:** counters now live in the database (see above).
 
 ## 6. The attacker's view
 Checked by reading each server function and route:

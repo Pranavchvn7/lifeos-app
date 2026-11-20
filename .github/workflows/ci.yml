@@ -1,0 +1,28 @@
+name: ci
+
+# Fast checks on every pull request and push to main: types, lint and unit tests.
+# (The browser tests run separately against the preview deployment: "e2e / smoke (preview)".)
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsc --noEmit
+      - run: npx eslint .
+      - run: npm test
+      - name: Known vulnerabilities in production dependencies
+        run: npm audit --omit=dev --audit-level=high

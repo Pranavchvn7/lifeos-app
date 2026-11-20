@@ -1,33 +1,18 @@
 /**
- * Self-hosted Better Auth for THIS app (server-only).
+ * Better Auth for LifeOS (server-only): email + password accounts, kept in this app's own database.
  *
- * Pre-wired for live preview + deploy — do not rewrite this file. To enable
- * local email/password, flip the flag in `./email-password` only (see auth skill).
+ *   - Production / staging (Vercel): `DATABASE_URL` (Neon) + `BETTER_AUTH_SECRET` + `BETTER_AUTH_URL` come from the
+ *     Vercel environment variables. Production refuses to start without the secret or the database.
+ *   - Local `npm run dev`: no variables needed. Accounts live in an in-memory PGlite database that resets on restart.
+ *   - `VITE_AUTH_ENABLED=false` switches sign-in off (dev user, only without a database; fails closed otherwise).
  *
- * The app runs its own Better Auth at `/api/auth/*`, so the session cookie stays
- * on this app's own origin. Sign-in federates to the shared **Grok auth broker**
- * (`GROK_AUTH_ISSUER`) via the `genericOAuth` plugin — the broker brokers the
- * upstream sign-in methods (Google, X, …) and holds their shared secrets; this
- * app only holds its own client id/secret and names the upstream it wants via
- * each provider's `idp` hint.
+ * The session cookie lives on this app's own origin (`__Host-` prefix, Secure, HttpOnly, SameSite=Lax). The cookie
+ * names still start with `grok-auth` for historical reasons: renaming them would sign every user out and break the
+ * e2e session test, so they are left alone.
  *
- * Tri-mode:
- *   - Deployed: the deployer injects a per-app `GROK_AUTH_*` + `BETTER_AUTH_URL`
- *     + `DATABASE_URL`, so real federated auth is persisted in Postgres.
- *   - Sandbox live preview: no injection -> falls back to the shared **preview
- *     client** (`./preview`) and derives the preview's `https://*.grok-sandbox.com`
- *     origin from the request, so real sign-in works (no demo users). Sessions
- *     and identities persist in the embedded PGLite DB (same DB as app data);
- *     the process restart wipes both. Live-preview iframe clients use a bearer
- *     token (partitioned cookies) — see `client.ts`.
- *   - Off (`VITE_AUTH_ENABLED=false`, the shipped default): no providers;
- *     `requireUserId` resolves a dev user with no database configured, and
- *     throws fail-closed once `DATABASE_URL` is set (see `verify.server.ts`).
- *
- * NEVER import this from client code — it pulls in `pg` + the preview secret +
- * server-only Better Auth internals. The client uses `@/lib/auth/client`;
- * components read the user via `@/lib/auth/use-current-user`; server functions get
- * a verified id via `@/lib/auth/middleware`.
+ * NEVER import this from client code - it pulls in `pg` and server-only Better Auth internals. The client uses
+ * `@/lib/auth/client`; components read the user via `@/lib/auth/use-current-user`; server functions get a verified
+ * id via `@/lib/auth/middleware`.
  */
 import { betterAuth } from "better-auth";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
@@ -68,12 +53,9 @@ const authDisabled = env("VITE_AUTH_ENABLED") === "false";
 /** True when sign-in is on (the default). Only `VITE_AUTH_ENABLED=false` turns it off. */
 export const authConfigured = !authDisabled;
 
-// This app's own Better Auth origin. When deployed the deployer injects the
-// public URL. In the sandbox live preview there's no fixed URL (each preview gets
-// a dynamic `*.grok-sandbox.com` host), so we hand Better Auth a dynamic baseURL:
-// it derives the origin per-request from the (proxied) host, validated against the
-// preview allowlist, which makes the OAuth `redirect_uri` the concrete preview URL
-// the broker's preview client accepts.
+// This app's own Better Auth origin, taken from the environment (see below). Vercel Preview deployments get a new
+// address every time, so on Vercel the base URL is derived per request from the Host header and checked against
+// an allow-list of known hosts.
 // ── Public hosting (Vercel, custom domains, other platforms) ────────────────
 // Origins this deployment is reachable at. Without these, Better Auth rejects
 // sign-up/sign-in POSTs with "Invalid origin" (shown in the UI as "Sign-in was
@@ -202,6 +184,15 @@ if (onVercel && !databaseUrl) {
   console.error(message);
 }
 
+// The database connection must be encrypted. Neon's connection strings include `sslmode=require`; a string without it
+// would send the password and every log over an unencrypted connection. Warn loudly (never print the string itself).
+if (onVercel && databaseUrl && !/sslmode=(require|verify-ca|verify-full)/i.test(databaseUrl)) {
+  console.error(
+    "[auth] DATABASE_URL has no sslmode=require. Use the connection string exactly as Neon shows it so the " +
+      "database connection is encrypted.",
+  );
+}
+
 export const auth = betterAuth({
   baseURL,
   // Deployed apps inject BETTER_AUTH_SECRET. Preview: process-stable secret on
@@ -227,13 +218,24 @@ export const auth = betterAuth({
   // tests can create many throw-away accounts quickly. Two keys are needed: AUTH_RATE_LIMIT=off AND the platform
   // reporting exactly VERCEL_ENV=preview. Production (or any other / missing value) always keeps the limit on,
   // even if AUTH_RATE_LIMIT=off is set there by mistake.
-  ...(env("AUTH_RATE_LIMIT") === "off" && env("VERCEL_ENV") === "preview"
-    ? { rateLimit: { enabled: false } }
-    : {}),
+  rateLimit:
+    env("AUTH_RATE_LIMIT") === "off" && env("VERCEL_ENV") === "preview"
+      ? { enabled: false }
+      : {
+          // Counters are kept in the database (table "rateLimit", migration 0004), not in server memory. On Vercel
+          // every cold start and every parallel instance has its own memory, so a memory counter lets an attacker
+          // simply spread guesses across instances. The database counter is shared and updated atomically.
+          storage: "database",
+          customRules: {
+            // Password guessing: at most 5 sign-in attempts per minute from one IP address. (Better Auth's own
+            // default is 3 per 10 seconds, which still allows about 18 per minute.)
+            "/sign-in/email": { window: 60, max: 5 },
+          },
+        },
 
   // `__Host-` prefixed cookies: the browser REFUSES any same-named cookie that
-  // carries a `Domain` attribute, so a sibling `*.grok.me` app cannot "toss" a
-  // `Domain=.grok.me` session cookie onto this app. `__Host-` requires Secure +
+  // carries a `Domain` attribute, so a sibling site on the same parent domain
+  // cannot plant a session cookie on this app. `__Host-` requires Secure +
   // Path=/ + no Domain; Better Auth otherwise uses `__Secure-` (which permits
   // Domain), so we drop its auto prefix (`useSecureCookies: false`) and set
   // Secure + the names ourselves. (Browsers allow Secure cookies on

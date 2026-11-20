@@ -4,7 +4,7 @@
 
 ***A 90-day discipline and habit tracker with daily checklists, a journal, goals, and a progress board that charts your week, month, and whole program.***
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-YOUR--APP.vercel.app-243f34?style=for-the-badge&logo=vercel&logoColor=white)](https://YOUR-APP.vercel.app/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-lifeos--app--eosin--nine.vercel.app-243f34?style=for-the-badge&logo=vercel&logoColor=white)](https://lifeos-app-eosin-nine.vercel.app/)
 
 ![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)
@@ -13,12 +13,13 @@
 ![Postgres](https://img.shields.io/badge/PostgreSQL-Neon-336791?logo=postgresql&logoColor=white)
 ![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-000?logo=vercel&logoColor=white)
 
-[**Try it live →**](https://YOUR-APP.vercel.app/)
+[**Try it live →**](https://lifeos-app-eosin-nine.vercel.app/)
 
 </div>
 
 -----
 
+<!-- TODO: add the 8 PNGs to docs/screenshots/ (01-today ... 08-dark), then delete the comment markers around the table to show the table.
 ## 📸 Screenshots
 
 | Today | Progress board (week) |
@@ -30,6 +31,7 @@
 | ![Goals](docs/screenshots/05-goals.png) | ![Journal](docs/screenshots/06-journal.png) |
 | **Mobile** | **Dark mode** |
 | ![Mobile](docs/screenshots/07-mobile.png) | ![Dark mode](docs/screenshots/08-dark.png) |
+-->
 
 ---
 
@@ -138,8 +140,8 @@ server/                 # Nitro middleware (PWA install page)
 **Prerequisites:** a recent Node.js (v20.19+ or v22+) and npm.
 
 ```bash
-git clone https://github.com/<your-username>/<your-repo>.git
-cd <your-repo>
+git clone https://github.com/Pranavchvn7/lifeos-app.git
+cd lifeos-app
 npm install
 npm run dev
 ```
@@ -213,7 +215,7 @@ LifeOS began as a personal tool for building daily discipline during a 90-day in
 ## 👤 Author
 
 **<Your Name>** — QA Automation Engineer (Playwright + TypeScript)
-[LinkedIn](https://www.linkedin.com/in/<your-handle>) · [GitHub](https://github.com/<your-username>)
+[LinkedIn](https://www.linkedin.com/in/<your-handle>) · [GitHub](https://github.com/Pranavchvn7)
 
 ## 📄 License
 

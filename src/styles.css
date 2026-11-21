@@ -1,31 +1,31 @@
 @import "tailwindcss";
 
 @theme {
-  --color-paper: #f3efe7;
-  --color-surface: #fbf9f4;
-  --color-inset: #ebe4d8;
-  --color-fg: #1c1915;
-  --color-muted: #6f675e;
-  --color-subtle: #8d857b;
-  --color-line: #e4dcd0;
-  --color-accent: #243f34;
-  --color-accent-fg: #f6f3ec;
-  --color-good: #1e6a43;
-  --color-good-soft: #e5f2ea;
-  --color-bad: #8e342e;
-  --color-bad-soft: #f8e8e6;
-  --color-heat-empty: #e6e0d6;
+  --color-paper: #fbf6ee;
+  --color-surface: #fffdfa;
+  --color-inset: #f4ebdd;
+  --color-fg: #2a2118;
+  --color-muted: #756a5d;
+  --color-subtle: #978b7c;
+  --color-line: #ebe0cf;
+  --color-accent: #2f6f50;
+  --color-accent-fg: #fffaf0;
+  --color-good: #23764a;
+  --color-good-soft: #e6f4ea;
+  --color-bad: #b0413a;
+  --color-bad-soft: #fbe9e6;
+  --color-heat-empty: #efe6d8;
   --color-heat-1: #d5e6db;
   --color-heat-2: #a9d0bb;
   --color-heat-3: #5f9a7a;
   --color-heat-4: #2c6b4c;
   --color-heat-5: #173d2c;
   --color-heat-ink: #f6f3ec;
-  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
-  --font-sans: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
-  --radius-sm: 0.5rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 1.25rem;
+  --font-display: "Nunito", ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Nunito", ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
+  --radius-sm: 0.625rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.5rem;
   --radius-xl: 1.75rem;
 }
 
@@ -49,7 +49,9 @@
     background: var(--color-paper);
     color: var(--color-fg);
     font-family: var(--font-sans);
-    line-height: 1.5;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   button:not(:disabled),
   [role="button"]:not(:disabled) {
@@ -62,6 +64,12 @@
   input[type="range"] {
     accent-color: var(--color-accent);
   }
+}
+
+/* Headings and big numbers use the same rounded family, a little heavier than body text. */
+.font-display {
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 @media (prefers-reduced-motion: reduce) {

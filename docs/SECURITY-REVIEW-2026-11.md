@@ -31,3 +31,10 @@ to make sure no change breaks the merge gate. An AI review does not replace a hu
 - **Found:** share tokens cannot be guessed; only the owner can create or revoke them. `/.env`, `/.git`, `package.json` and similar are not served (the e2e `exposure` tests assert this). There are no admin panels or Swagger pages. The old sandbox preview message listener could never be reached (framing is blocked by `frame-ancestors 'none'`) but was unneeded code.
 - **Fixed:** removed the unused preview bridge and the other unused sandbox code (see CHANGES).
 - **Re-run this review after every major feature** (forgot-password especially: single-use, 15-minute, hashed tokens, no account enumeration).
+
+## Recheck for v1.1.0 (sync safety)
+1. **Secrets:** no new variables or secrets; gitleaks and `.gitignore` unchanged.
+2. **Personal data:** the conflict reply contains only the signed-in user's own log. No new third parties, no new logging.
+3. **Pre-deploy:** one new migration (`0005`, `add column if not exists`, safe to re-run, applied on staging first). Responses stay `no-store`, which now matters because the foreground refresh reads the log with a GET request.
+4. **Deep audit:** the user id still comes only from the verified session (no IDOR). `baseVersion` must be a non-negative integer or the request is refused. SQL is parameterised. A stale save writes nothing. The retry loop is capped at 4 attempts.
+5. **Attacker's view:** an attacker cannot read or overwrite another account's log by guessing versions, because every query is also keyed by the session's user id. Repeated saves are the same abuse surface as before.

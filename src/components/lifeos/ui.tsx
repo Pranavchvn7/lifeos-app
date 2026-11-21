@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 export function Panel({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <section className={cn("rounded-xl border border-line bg-surface p-4", className)}>
+    <section className={cn("rounded-xl border border-line bg-surface p-5 shadow-[0_1px_2px_rgba(80,55,30,0.05),0_10px_28px_-14px_rgba(80,55,30,0.22)]", className)}>
       {children}
     </section>
   );

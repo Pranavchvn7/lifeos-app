@@ -17,7 +17,7 @@ function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle("dark", theme === "dark");
   document
     .querySelector('meta[name="theme-color"]')
-    ?.setAttribute("content", theme === "dark" ? "#14120f" : "#f3efe7");
+    ?.setAttribute("content", theme === "dark" ? "#14120f" : "#fbf6ee");
 }
 
 /** Light/dark toggle, remembered per browser. Call only after mount (client). */

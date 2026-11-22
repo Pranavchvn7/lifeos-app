@@ -19,6 +19,8 @@ import {
   type Habit,
   type LifeData,
 } from "@/lib/lifeos/model";
+import { disablePush, currentSubscription, enablePush, pushSupport, registerWorker, type PushSupport } from "@/lib/lifeos/push-client";
+import { getPushStatus, sendTestPush, type PushStatus } from "@/lib/lifeos/push.functions";
 import { showNotification, useReminderPrefs } from "@/lib/lifeos/reminders";
 import { createShareLink, getShareStatus, revokeShareLink } from "@/lib/lifeos/share.functions";
 import { useLife } from "@/lib/lifeos/store";
@@ -268,6 +270,112 @@ export function ReminderSection() {
       >
         Send a test notification
       </button>
+      <PushControls />
+    </div>
+  );
+}
+
+/** Phone notifications that arrive even when LifeOS is closed (web push). */
+function PushControls() {
+  const [support, setSupport] = useState<PushSupport>("unsupported");
+  const [status, setStatus] = useState<PushStatus | null>(null);
+  const [thisDevice, setThisDevice] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function refresh() {
+    try {
+      setStatus(await getPushStatus());
+    } catch {
+      setStatus(null);
+    }
+    setThisDevice((await currentSubscription()) !== null);
+  }
+
+  useEffect(() => {
+    const kind = pushSupport();
+    setSupport(kind);
+    if (kind === "ok") {
+      void registerWorker();
+      void refresh();
+    }
+  }, []);
+
+  async function turnOn() {
+    setBusy(true);
+    const result = await enablePush();
+    setBusy(false);
+    if (result === "enabled") toast.success("Phone notifications are on for this device.");
+    else if (result === "denied") toast.error("Notifications are blocked. Allow them in your browser or phone settings, then try again.");
+    else if (result === "not-configured") toast.error("Push notifications aren't set up on the server yet.");
+    else if (result === "limit") toast.error("You already have the maximum number of devices. Turn one off first.");
+    else toast.error("Couldn't turn on push notifications. Please try again.");
+    await refresh();
+  }
+
+  async function turnOff() {
+    setBusy(true);
+    const ok = await disablePush();
+    setBusy(false);
+    if (ok) toast.success("Phone notifications are off for this device.");
+    else toast.error("Couldn't turn them off. Please try again.");
+    await refresh();
+  }
+
+  async function sendTest() {
+    setBusy(true);
+    try {
+      const result = await sendTestPush();
+      if (result.status === "sent") toast.success("Test notification sent. It should arrive in a few seconds.");
+      else if (result.status === "too-soon") toast("Please wait 30 seconds between test notifications.");
+      else if (result.status === "no-device") toast.error("No device is set up yet. Turn on phone notifications first.");
+      else if (result.status === "not-configured") toast.error("Push notifications aren't set up on the server yet.");
+      else toast.error("The notification couldn't be delivered. Turn it off and on again on this device.");
+    } catch {
+      toast.error("Couldn't send the test notification.");
+    } finally {
+      setBusy(false);
+      await refresh();
+    }
+  }
+
+  return (
+    <div className="space-y-2 border-t border-line pt-3" data-testid="push-section">
+      <p className="text-sm font-medium">Phone notifications (work even when the app is closed)</p>
+      {support === "needs-install-ios" ? (
+        <p className="text-sm text-muted" data-testid="push-status">
+          On iPhone, add LifeOS to your Home Screen first (Share, then Add to Home Screen), open it from there, and come back here.
+        </p>
+      ) : support === "unsupported" ? (
+        <p className="text-sm text-muted" data-testid="push-status">
+          This browser can't receive push notifications. The in-app reminders above still work.
+        </p>
+      ) : status && !status.configured ? (
+        <p className="text-sm text-muted" data-testid="push-status">
+          Push notifications aren't set up on this server yet.
+        </p>
+      ) : (
+        <>
+          <p className="text-sm text-muted" data-testid="push-status">
+            {thisDevice
+              ? `On for this device (${status?.devices ?? 1} device${(status?.devices ?? 1) === 1 ? "" : "s"} in total).`
+              : "Off for this device."}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {thisDevice ? (
+              <button type="button" data-testid="push-disable" className={btn} disabled={busy} onClick={() => void turnOff()}>
+                Turn off on this device
+              </button>
+            ) : (
+              <button type="button" data-testid="push-enable" className={btnPrimary} disabled={busy} onClick={() => void turnOn()}>
+                Turn on phone notifications
+              </button>
+            )}
+            <button type="button" data-testid="push-test" className={btn} disabled={busy || !status || status.devices === 0} onClick={() => void sendTest()}>
+              Send a test push
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

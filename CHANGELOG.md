@@ -2,6 +2,16 @@
 
 Versions are numbered `major.minor.patch`. The version also shows at the bottom of Account & settings.
 
+## v1.5.0 - 2026-11-25 - Phone notifications (part 1: the plumbing)
+- **Reminders -> Phone notifications.** Turn on push notifications for this phone or browser; they can arrive even when
+  LifeOS is closed. **Send a test push** shows it works. Turn them off per device at any time.
+- On iPhone this works only once LifeOS is added to the Home Screen (iOS 16.4 or newer); the screen explains this.
+- Safe by design: only the real browser push services are accepted as destinations (Google, Mozilla, Apple, Windows), at most
+  10 devices per account, test pushes limited to one per 30 seconds, and devices are deleted with the account.
+- The app needs three server settings before this works (VAPID keys, see `docs/PUSH-SETUP.md`). Until they are set, the screen says push is not set up and nothing else changes.
+- New migration `0007_push_subscriptions.sql`. New dependency: `web-push`. New file `public/sw.js` (the service worker; it only shows notifications).
+- Not in this version: the scheduled daily/weekly reminder pushes. They come in v1.6.0.
+
 ## v1.4.0 - 2026-11-24 - Safer backup and restore
 - **Import backup now shows a preview first.** After you choose a file you see what is in the app now next to what is
   in the backup (habits, logged days and their dates, to-dos, goals, journal days, program), and nothing changes until you choose.

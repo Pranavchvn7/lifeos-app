@@ -51,3 +51,31 @@ export const saveLifeLog = createServerFn({ method: "POST" })
       version: result.current?.version ?? 0,
     };
   });
+
+/** Before an import replaces anything: keep a copy of the current log so the import can be undone. */
+export const stashPreviousLog = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: unknown) => parseLifeData(input))
+  .handler(async ({ context, data }): Promise<{ saved: boolean }> => {
+    const { getSql } = await import("@/lib/db");
+    const { stashPreviousRow } = await import("./life-log.server");
+    return { saved: await stashPreviousRow(await getSql(), context.userId, JSON.stringify(data)) };
+  });
+
+/** When the copy from before the last import was made, or null if there is none. */
+export const getPreviousLogInfo = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<{ at: string | null }> => {
+    const { getSql } = await import("@/lib/db");
+    const { readPreviousInfo } = await import("./life-log.server");
+    return readPreviousInfo(await getSql(), context.userId);
+  });
+
+/** The log as it was before the last import (to undo it). */
+export const loadPreviousLog = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<{ data: LifeData | null }> => {
+    const { getSql } = await import("@/lib/db");
+    const { readPreviousPayload } = await import("./life-log.server");
+    return { data: parseStored((await readPreviousPayload(await getSql(), context.userId)) ?? undefined) };
+  });

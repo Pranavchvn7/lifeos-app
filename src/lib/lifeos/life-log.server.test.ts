@@ -2,7 +2,13 @@ import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
-import { readLifeLogRow, writeLifeLogRow } from "./life-log.server.ts";
+import {
+  readLifeLogRow,
+  readPreviousInfo,
+  readPreviousPayload,
+  stashPreviousRow,
+  writeLifeLogRow,
+} from "./life-log.server.ts";
 
 // Real Postgres (PGlite) with the real migrations, so the SQL is tested as it will run in production.
 let sql: Parameters<typeof readLifeLogRow>[0];
@@ -11,6 +17,7 @@ before(async () => {
   const pg = new PGlite({ parsers: { 20: Number } });
   await pg.exec(readFileSync("migrations/0002_lifeos.sql", "utf8"));
   await pg.exec(readFileSync("migrations/0005_life_log_version.sql", "utf8"));
+  await pg.exec(readFileSync("migrations/0006_previous_log.sql", "utf8"));
   const run = async (text: string, params: unknown[] = []) => (await pg.query(text, params)).rows;
   const tag = (async (strings: TemplateStringsArray, ...values: unknown[]) => {
     let text = strings[0] ?? "";
@@ -59,5 +66,36 @@ describe("writeLifeLogRow", () => {
 
   it("reports a missing log as a conflict when a later version was expected", async () => {
     assert.deepEqual(await writeLifeLogRow(sql, "nobody", "{}", 5), { ok: false, current: null });
+  });
+});
+
+describe("the copy kept before an import", () => {
+  it("has nothing until one is stashed", async () => {
+    await writeLifeLogRow(sql, "p1", '{"now":1}', 0);
+    assert.deepEqual(await readPreviousInfo(sql, "p1"), { at: null });
+    assert.equal(await readPreviousPayload(sql, "p1"), null);
+  });
+
+  it("stores and returns the copy without touching the live log or its version", async () => {
+    assert.equal(await stashPreviousRow(sql, "p1", '{"before":true}'), true);
+    const info = await readPreviousInfo(sql, "p1");
+    assert.match(info.at ?? "", /^\d{4}-\d{2}-\d{2}T/);
+    assert.equal(await readPreviousPayload(sql, "p1"), '{"before":true}');
+    assert.deepEqual(await readLifeLogRow(sql, "p1"), { payload: '{"now":1}', version: 1 });
+  });
+
+  it("a newer import replaces the older copy", async () => {
+    await stashPreviousRow(sql, "p1", '{"before":"second"}');
+    assert.equal(await readPreviousPayload(sql, "p1"), '{"before":"second"}');
+  });
+
+  it("returns false when the user has no saved log yet, and never mixes users", async () => {
+    assert.equal(await stashPreviousRow(sql, "nobody-yet", "{}"), false);
+    assert.equal(await readPreviousPayload(sql, "p2"), null);
+  });
+
+  it("normal saves do not erase the copy", async () => {
+    await writeLifeLogRow(sql, "p1", '{"now":2}', 1);
+    assert.equal(await readPreviousPayload(sql, "p1"), '{"before":"second"}');
   });
 });

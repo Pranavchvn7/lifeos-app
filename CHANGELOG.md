@@ -2,6 +2,18 @@
 
 Versions are numbered `major.minor.patch`. The version also shows at the bottom of Account & settings.
 
+## v1.4.0 - 2026-11-24 - Safer backup and restore
+- **Import backup now shows a preview first.** After you choose a file you see what is in the app now next to what is
+  in the backup (habits, logged days and their dates, to-dos, goals, journal days, program), and nothing changes until you choose.
+- Two ways to restore: **Replace everything with this backup**, or **Add what's missing (keep my data)**, which keeps
+  everything you have and adds only what the backup has that you do not (if both have the same thing, yours wins).
+- **Undo.** Before any import, a safety copy of your current data is saved on the server. A toast offers Undo for 12 seconds,
+  and **Undo last import** stays in the Export section until the next import. If the safety copy cannot be saved, nothing is changed.
+- Clear messages for a wrong file (not JSON, not a LifeOS backup, too large). Backups now also record the date and
+  LifeOS version they were made with; older backup files still restore.
+- New migration `0006_previous_log.sql` (two columns for the safety copy). Unit tests run through `tsx`, so more of the app's code can be tested.
+- E2E note: the existing "JSON backup restores the log" test must now click **Replace everything with this backup** after choosing the file (updated test included in the e2e patch).
+
 ## v1.3.0 - 2026-11-23 - Streak freeze
 - A missed or bad day can be frozen with **Freeze this day** (Today screen, under the score). A frozen day does not break
   your streak and is left out of your averages, exactly like a rest day. It shows as "Frozen day" and as "Frozen" in the export.

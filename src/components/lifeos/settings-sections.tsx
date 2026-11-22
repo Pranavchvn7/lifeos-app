@@ -3,7 +3,9 @@ import { toast } from "sonner";
 import { signOut } from "@/lib/auth/client";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { deleteMyAccount } from "@/lib/lifeos/account.functions";
+import { BACKUP_MAX_BYTES, buildBackup, mergeBackup, readBackup, type BackupMeta } from "@/lib/lifeos/backup";
 import { buildExportSheets, downloadBlob, exportFileName, toCsv, xlsxBytes } from "@/lib/lifeos/export";
+import { getPreviousLogInfo, loadPreviousLog, stashPreviousLog } from "@/lib/lifeos/life.functions";
 import {
   PROGRAM_LENGTHS,
   WEEKDAY_NAMES,
@@ -15,12 +17,16 @@ import {
   shiftDate,
   todayISO,
   type Habit,
+  type LifeData,
 } from "@/lib/lifeos/model";
 import { showNotification, useReminderPrefs } from "@/lib/lifeos/reminders";
 import { createShareLink, getShareStatus, revokeShareLink } from "@/lib/lifeos/share.functions";
 import { useLife } from "@/lib/lifeos/store";
+import { selectData } from "@/lib/lifeos/validate";
+import { APP_VERSION } from "@/lib/version";
 import { useLifeData } from "@/lib/lifeos/use-life-data";
 import { cn } from "@/lib/utils";
+import { ImportPreview } from "./import-preview";
 import { Field } from "./ui";
 
 const btn = "h-11 rounded-md border border-line px-3 text-sm font-medium";
@@ -272,6 +278,75 @@ export function ExportSection({ onImportError, onImported }: { onImportError: (m
   const data = useLifeData();
   const replace = useLife((s) => s.replace);
   const today = todayISO();
+  const [pending, setPending] = useState<{ data: LifeData; meta: BackupMeta } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [previousAt, setPreviousAt] = useState<string | null>(null);
+
+  async function refreshPrevious() {
+    try {
+      setPreviousAt((await getPreviousLogInfo()).at);
+    } catch {
+      setPreviousAt(null);
+    }
+  }
+  useEffect(() => {
+    void refreshPrevious();
+  }, []);
+
+  function chooseFile(file: File) {
+    if (file.size > BACKUP_MAX_BYTES) {
+      onImportError("That file is too large to be a LifeOS backup.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = readBackup(String(reader.result));
+      if (result.ok) setPending({ data: result.data, meta: result.meta });
+      else onImportError(result.error);
+    };
+    reader.onerror = () => onImportError("Could not read that file.");
+    reader.readAsText(file);
+  }
+
+  async function undoImport() {
+    setBusy(true);
+    try {
+      const { data: previous } = await loadPreviousLog();
+      if (!previous) {
+        toast.error("There is no earlier copy to go back to.");
+        return;
+      }
+      replace(previous);
+      toast.success("Import undone. Your earlier data is back.");
+    } catch {
+      toast.error("Couldn't undo the import. Please try again.");
+    } finally {
+      setBusy(false);
+      void refreshPrevious();
+    }
+  }
+
+  async function applyImport(mode: "replace" | "merge") {
+    if (!pending) return;
+    setBusy(true);
+    const current = selectData(useLife.getState());
+    try {
+      // Keep a safety copy first. If that fails, nothing is changed.
+      await stashPreviousLog({ data: current });
+    } catch {
+      setBusy(false);
+      onImportError("Couldn't save a safety copy first, so nothing was changed. Please try again.");
+      return;
+    }
+    replace(mode === "merge" ? mergeBackup(current, pending.data) : pending.data);
+    setPending(null);
+    setBusy(false);
+    toast.success(mode === "merge" ? "Added what was missing from the backup." : "Backup restored.", {
+      duration: 12000,
+      action: { label: "Undo", onClick: () => void undoImport() },
+    });
+    onImported();
+  }
 
   function download(kind: "xlsx" | "daily" | "habits" | "todos" | "json") {
     try {
@@ -284,7 +359,7 @@ export function ExportSection({ onImportError, onImported }: { onImportError: (m
       } else if (kind === "json") {
         downloadBlob(
           exportFileName("backup", "json", today),
-          new Blob([JSON.stringify({ version: 1, ...data }, null, 2)], { type: "application/json" }),
+          new Blob([buildBackup(data, APP_VERSION, new Date())], { type: "application/json" }),
         );
       } else {
         const sheets = buildExportSheets(data, today);
@@ -323,7 +398,10 @@ export function ExportSection({ onImportError, onImported }: { onImportError: (m
         </button>
       </div>
       <div className="border-t border-line pt-3">
-        <p className="mb-2 text-sm text-muted">Full backup you can restore later (replaces what's in the app).</p>
+        <p className="mb-2 text-sm text-muted">
+          Full backup you can restore later. When you restore, you see what is in the file first and can replace
+          everything or just add what is missing.
+        </p>
         <div className="flex flex-wrap gap-2">
           <button type="button" data-testid="export-json" className={btn} onClick={() => download("json")}>
             Export backup (.json)
@@ -332,35 +410,40 @@ export function ExportSection({ onImportError, onImported }: { onImportError: (m
             Import backup
             <input
               type="file"
-              accept="application/json"
+              accept="application/json,.json"
               data-testid="import-json"
               className="sr-only"
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 event.target.value = "";
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = () => {
-                  try {
-                    const parsed = JSON.parse(String(reader.result)) as unknown;
-                    if (!parsed || typeof parsed !== "object" || !("dos" in parsed)) throw new Error("That isn't a LifeOS backup.");
-                    void import("@/lib/lifeos/validate").then(({ parseLifeData }) => {
-                      try {
-                        replace(parseLifeData(parsed));
-                        onImported();
-                      } catch (err) {
-                        onImportError(err instanceof Error ? err.message : "Could not read that file.");
-                      }
-                    });
-                  } catch (err) {
-                    onImportError(err instanceof Error ? err.message : "Could not read that file.");
-                  }
-                };
-                reader.readAsText(file);
+                if (file) chooseFile(file);
               }}
             />
           </label>
+          {previousAt ? (
+            <button type="button" data-testid="import-undo" className={btn} disabled={busy} onClick={() => void undoImport()}>
+              Undo last import
+            </button>
+          ) : null}
         </div>
+        {previousAt ? (
+          <p className="mt-2 text-xs text-muted">
+            "Undo last import" goes back to your data as it was on {new Date(previousAt).toLocaleString()}.
+          </p>
+        ) : null}
+        {pending ? (
+          <div className="mt-3">
+            <ImportPreview
+              current={selectData(useLife.getState())}
+              backup={pending.data}
+              meta={pending.meta}
+              busy={busy}
+              onReplace={() => void applyImport("replace")}
+              onMerge={() => void applyImport("merge")}
+              onCancel={() => setPending(null)}
+            />
+          </div>
+        ) : null}
       </div>
     </div>
   );

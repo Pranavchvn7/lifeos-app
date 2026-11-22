@@ -52,3 +52,10 @@ to make sure no change breaks the merge gate. An AI review does not replace a hu
 3. **Pre-deploy:** no new endpoints, headers, variables or migrations.
 4. **Deep audit:** the server accepts `freezeDays` only as ISO-date keys with the value `true`, at most 400 entries; anything else is refused. The "2 per 30 days" rule is enforced in the app only; a modified client could store more freezes, which only affects that user's own stats.
 5. **Attacker's view:** no other user's data is reachable through this field; nothing is rendered as HTML.
+
+## Recheck for v1.4.0 (safer backup and restore)
+1. **Secrets:** nothing new. (A backup file contains your own log; keep it private like any export.)
+2. **Personal data:** the safety copy stays in the same private database row (never in the browser's storage, so nothing is left behind on a shared device) and is deleted with the account. Backups are read in the browser only; the file is never uploaded as a file.
+3. **Pre-deploy:** one migration (`0006`, `add column if not exists`, applied on staging first). New server functions need a signed-in session and use `no-store` responses.
+4. **Deep audit:** a backup goes through the same strict validation as every save (key allow-lists, length limits, 2 MB), plus a 5 MB file limit and plain error messages. The user id still comes only from the session. SQL is parameterised. Backup labels (`exportedAt`, `appVersion`) are only shown if they match a fixed pattern and are rendered as text.
+5. **Attacker's view:** a malicious backup file can only change the importing user's own data, and the preview plus the safety copy make a wrong or hostile file easy to undo. No file content is ever rendered as HTML.

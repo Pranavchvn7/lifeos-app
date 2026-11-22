@@ -40,3 +40,28 @@ export async function writeLifeLogRow(
   }
   return { ok: false, current: await readLifeLogRow(sql, userId) };
 }
+
+/** Keep a copy of the log as it was before an import. Returns false when there is no saved log to attach it to. */
+export async function stashPreviousRow(sql: Sql, userId: string, payload: string): Promise<boolean> {
+  const rows = await sql<{ user_id: string }>`
+    update life_logs set previous_payload = ${payload}, previous_at = now()
+    where user_id = ${userId}
+    returning user_id
+  `;
+  return rows.length > 0;
+}
+
+export async function readPreviousInfo(sql: Sql, userId: string): Promise<{ at: string | null }> {
+  const rows = await sql<{ at: Date | string | null }>`
+    select previous_at as at from life_logs where user_id = ${userId} and previous_payload is not null
+  `;
+  const at = rows[0]?.at;
+  return { at: at ? new Date(at).toISOString() : null };
+}
+
+export async function readPreviousPayload(sql: Sql, userId: string): Promise<string | null> {
+  const rows = await sql<{ payload: string | null }>`
+    select previous_payload as payload from life_logs where user_id = ${userId}
+  `;
+  return rows[0]?.payload ?? null;
+}

@@ -14,7 +14,7 @@
     "preview": "node scripts/with-app-env.mjs vite preview",
     "typecheck": "tsc --noEmit",
     "check:auth": "node scripts/check-auth-invariant.mjs",
-    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/auth/sign-in-gate.test.ts src/lib/preview-path-prefix.test.ts src/lib/version.test.ts src/lib/lifeos/merge.test.ts src/lib/lifeos/life-log.server.test.ts src/lib/lifeos/recurrence.test.ts src/lib/lifeos/freeze.test.ts",
+    "test": "node --test 'scripts/**/*.test.mjs' && node --import tsx --test 'src/**/*.test.ts'",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
@@ -89,7 +89,8 @@
     "globals": "^15.15.0",
     "playwright": "^1.62.0",
     "prettier": "^3.4.0",
+    "tsx": "^4.23.15",
     "typescript-eslint": "^8.56.1"
   },
-  "version": "1.3.0"
+  "version": "1.4.0"
 }

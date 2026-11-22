@@ -46,6 +46,8 @@ type LifeStore = LifeData & {
   removeHabit: (kind: "dos" | "donts", id: string) => void;
   patchReflection: (month: string, patch: Partial<MonthReflection>) => void;
   replace: (data: LifeData) => void;
+  /** Put data that came from the server (another device) into the store. `dirty` = it still has to be saved. */
+  applyRemote: (data: LifeData, dirty: boolean) => void;
 };
 
 const blank: LifeData = createBlank();
@@ -257,4 +259,5 @@ export const useLife = create<LifeStore>((set) => ({
       });
     }),
   replace: (data) => set((state) => ({ ...data, revision: state.revision + 1, ready: true })),
+  applyRemote: (data, dirty) => set((state) => ({ ...data, revision: dirty ? state.revision + 1 : state.revision })),
 }));

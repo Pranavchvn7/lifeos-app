@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { UserButton } from "@/lib/auth/gates";
+import { APP_VERSION } from "@/lib/version";
 import { DangerSection, ExportSection, HabitEditor, ProgramSection, ReminderSection, Section, ShareSection } from "./settings-sections";
 
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
@@ -59,6 +60,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         <Section id="danger" title="Danger zone" hint="Start over or delete your account">
           <DangerSection onDone={onClose} />
         </Section>
+
+        <p className="mt-4 text-center text-xs text-subtle" data-testid="app-version">
+          LifeOS v{APP_VERSION}
+        </p>
       </div>
     </div>
   );

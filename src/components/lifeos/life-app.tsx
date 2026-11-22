@@ -10,7 +10,9 @@ import { useLifeData } from "@/lib/lifeos/use-life-data";
 import { isReviewDone, reviewWeekFor } from "@/lib/lifeos/weekly";
 import { getLifeLog, saveLifeLog } from "@/lib/lifeos/life.functions";
 import { useLife } from "@/lib/lifeos/store";
-import { selectData } from "@/lib/lifeos/validate";
+import { parseLifeData, selectData } from "@/lib/lifeos/validate";
+import { mergeLifeData, sameData } from "@/lib/lifeos/merge";
+import type { LifeData } from "@/lib/lifeos/model";
 import { useTheme } from "@/lib/lifeos/theme";
 import { cn } from "@/lib/utils";
 import { AppHeader } from "./app-header";
@@ -42,6 +44,9 @@ export function LifeApp({ userId }: { userId: string }) {
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [mounted, setMounted] = useState(false);
   const chain = useRef<Promise<void>>(Promise.resolve());
+  // What the server held when this device last read or saved it (the "base" for merging) and its version.
+  const base = useRef<{ data: LifeData; version: number } | null>(null);
+  const lastSync = useRef(0);
   const { theme, toggle: toggleTheme } = useTheme();
   const data = useLifeData();
   const program = programOf(data);
@@ -70,7 +75,8 @@ export function LifeApp({ userId }: { userId: string }) {
     void getLifeLog()
       .then((row) => {
         if (cancel) return;
-        useLife.getState().load(userId, row ?? createBlank());
+        useLife.getState().load(userId, row.data ?? createBlank());
+        base.current = { data: selectData(useLife.getState()), version: row.version };
       })
       .catch((err: unknown) => {
         if (cancel) return;
@@ -82,22 +88,83 @@ export function LifeApp({ userId }: { userId: string }) {
     };
   }, [mounted, userId]);
 
+  // Save: every save names the server version it is based on. If another device saved in between, the server
+  // refuses, we merge the two copies (see merge.ts) and save the merged result, so nothing is overwritten.
   useEffect(() => {
     if (!ready || revision === 0) return;
     const handle = window.setTimeout(() => {
       const rev = useLife.getState().revision;
-      const snapshot = selectData(useLife.getState());
       setSaveState("saving");
       chain.current = chain.current
         .then(async () => {
           if (useLife.getState().revision !== rev) return;
-          await saveLifeLog({ data: snapshot });
-          if (useLife.getState().revision === rev) setSaveState("saved");
+          for (let attempt = 0; attempt < 4; attempt += 1) {
+            const known = base.current;
+            if (!known) return;
+            const snapshot = selectData(useLife.getState());
+            const res = await saveLifeLog({ data: { data: snapshot, baseVersion: known.version } });
+            if (res.ok) {
+              base.current = { data: snapshot, version: res.version };
+              if (useLife.getState().revision === rev) setSaveState("saved");
+              return;
+            }
+            const server = res.data ?? createBlank();
+            let merged: LifeData;
+            try {
+              merged = parseLifeData(mergeLifeData(known.data, selectData(useLife.getState()), server));
+            } catch {
+              merged = selectData(useLife.getState()); // never lose what is on this screen
+            }
+            base.current = { data: server, version: res.version };
+            useLife.getState().applyRemote(merged, false);
+            toast("Combined with changes from another device");
+          }
+          throw new Error("Could not sync");
         })
         .catch(() => setSaveState("error"));
     }, 400);
     return () => window.clearTimeout(handle);
   }, [ready, revision]);
+
+  // When the app comes back to the foreground (a phone app can sit open for days), pick up changes made on
+  // another device. Unsaved edits on this device are merged in, never dropped.
+  useEffect(() => {
+    if (!ready) return;
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      const now = Date.now();
+      if (now - lastSync.current < 5000) return;
+      lastSync.current = now;
+      chain.current = chain.current
+        .then(async () => {
+          const known = base.current;
+          if (!known) return;
+          const row = await getLifeLog();
+          if (row.version === known.version) return;
+          const server = row.data ?? createBlank();
+          const local = selectData(useLife.getState());
+          const dirty = !sameData(local, known.data);
+          let next = server;
+          if (dirty) {
+            try {
+              next = parseLifeData(mergeLifeData(known.data, local, server));
+            } catch {
+              next = local;
+            }
+          }
+          base.current = { data: server, version: row.version };
+          useLife.getState().applyRemote(next, dirty);
+          toast("Updated with changes from another device");
+        })
+        .catch(() => undefined);
+    };
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [ready]);
 
   // Celebrate newly earned badges (the first run only records what's already earned).
   const earnedIds = useMemo(

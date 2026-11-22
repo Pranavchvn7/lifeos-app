@@ -214,6 +214,19 @@ function parseTodos(value: unknown): Todo[] {
   return todos;
 }
 
+function parseFreezeDays(value: unknown): Record<string, boolean> {
+  if (value == null) return {};
+  if (!isRecord(value)) throw new Error("Invalid freeze days.");
+  const out: Record<string, boolean> = {};
+  const keys = Object.keys(value);
+  if (keys.length > 400) throw new Error("Invalid freeze days.");
+  for (const key of keys) {
+    if (!ISO_DATE.test(key)) throw new Error("Invalid freeze days.");
+    if (value[key] === true) out[key] = true;
+  }
+  return out;
+}
+
 function parseWeeklyReviews(value: unknown): Record<string, WeeklyReview> {
   if (value == null) return {};
   if (!isRecord(value)) throw new Error("Invalid weekly reviews.");
@@ -288,6 +301,7 @@ export function parseLifeData(input: unknown): LifeData {
     goals: parseGoals(input.goals),
     reflections: parseReflections(input.reflections),
     todos: parseTodos(input.todos),
+    freezeDays: parseFreezeDays(input.freezeDays),
     weeklyReviews: parseWeeklyReviews(input.weeklyReviews),
     programStart,
     programDays,
@@ -310,5 +324,6 @@ export function selectData(state: LifeData): LifeData {
     programStart: state.programStart,
     programDays: state.programDays,
     pastPrograms: state.pastPrograms,
+    freezeDays: state.freezeDays,
   };
 }

@@ -25,6 +25,8 @@ export type DayScore = {
   filled: boolean;
   /** Nothing is scheduled this day (no habits, or none apply on this weekday). */
   rest: boolean;
+  /** A streak freeze protects this day: it counts as a rest day. */
+  frozen: boolean;
   streak: number | null;
 };
 
@@ -63,7 +65,8 @@ function scoreDate(data: LifeData, date: string): Omit<DayScore, "streak"> {
   // Only lists that apply count: with no don'ts scheduled, the day is scored on do's alone (and vice versa).
   const overall =
     dosTotal && dontsTotal ? (dosPct + dontsPct) / 2 : dosTotal ? dosPct : dontsTotal ? dontsPct : 0;
-  const rest = dosTotal + dontsTotal === 0;
+  const frozen = data.freezeDays[date] === true;
+  const rest = frozen || dosTotal + dontsTotal === 0;
   return {
     date,
     dosDone,
@@ -77,6 +80,7 @@ function scoreDate(data: LifeData, date: string): Omit<DayScore, "streak"> {
     good: !rest && overall >= GOOD_DAY,
     filled,
     rest,
+    frozen,
   };
 }
 
@@ -240,7 +244,7 @@ function habitStreak(
   let run = 0;
   for (let i = 0; i < dates.length; i += 1) {
     const date = dates[i] as string;
-    if (!isScheduled(habit, date)) continue; // days off never break a streak
+    if (!isScheduled(habit, date) || data.freezeDays[date]) continue; // days off and frozen days never break a streak
     const state = habitCell(data, kind, habit.id, date);
     if (state === "ok") run += 1;
     else if (state === "empty" && date === today) continue; // today not logged yet
@@ -258,7 +262,7 @@ export function habitStats(data: LifeData, start: string, end: string, today: st
     let gaveIn = 0;
     let scheduled = 0;
     for (const date of dates) {
-      if (!isScheduled(habit, date)) continue;
+      if (!isScheduled(habit, date) || data.freezeDays[date]) continue;
       scheduled += 1;
       const state = habitCell(data, kind, habit.id, date);
       if (state === "ok") hits += 1;

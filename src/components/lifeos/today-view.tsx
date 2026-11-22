@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BellRing, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { BellRing, Check, ChevronLeft, ChevronRight, Snowflake } from "lucide-react";
 import {
   MOODS,
   clampProgram,
@@ -14,6 +14,7 @@ import {
   shiftDate,
   todayISO,
 } from "@/lib/lifeos/model";
+import { FREEZES_PER_BLOCK, checkFreeze, freezeBlockRange, freezesLeft } from "@/lib/lifeos/freeze";
 import { buildScores } from "@/lib/lifeos/score";
 import { selectData } from "@/lib/lifeos/validate";
 import { useLife } from "@/lib/lifeos/store";
@@ -45,6 +46,7 @@ export function TodayView({
   const setDontNote = useLife((state) => state.setDontNote);
   const setOneLine = useLife((state) => state.setOneLine);
   const patchJournal = useLife((state) => state.patchJournal);
+  const setFrozen = useLife((state) => state.setFrozen);
 
   const today = todayISO();
   const program = programOf(data);
@@ -184,7 +186,27 @@ export function TodayView({
         </Panel>
       ) : null}
 
-      {score && !noHabits && score.rest ? (
+      {score && !noHabits && score.frozen ? (
+        <Panel>
+          <p className="flex items-center gap-2 font-display text-2xl font-medium" data-testid="frozen-day">
+            <Snowflake className="size-6 text-accent" aria-hidden="true" />
+            Frozen day
+          </p>
+          <p className="mt-1 text-sm text-muted">
+            This day is protected: it won't break your streak or count against your averages.
+          </p>
+          <button
+            type="button"
+            data-testid="unfreeze-day"
+            onClick={() => setFrozen(date, false, today, true)}
+            className="mt-3 h-11 rounded-md border border-line px-4 text-sm font-medium"
+          >
+            Unfreeze this day
+          </button>
+        </Panel>
+      ) : null}
+
+      {score && !noHabits && score.rest && !score.frozen ? (
         <Panel>
           <p className="font-display text-2xl font-medium" data-testid="rest-day">
             Rest day
@@ -217,6 +239,9 @@ export function TodayView({
               </p>
             </div>
           </div>
+          {!score.good ? (
+            <FreezeRow date={date} today={today} onFreeze={() => setFrozen(date, true, today, true)} />
+          ) : null}
         </Panel>
       ) : null}
 
@@ -506,4 +531,37 @@ function NoteField({ value, onChange }: { value: string; onChange: (notes: strin
 function weekdayIsSunday(iso: string): boolean {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y as number, (m as number) - 1, d as number).getDay() === 0;
+}
+
+/** "Freeze this day": shown under the score of a day that is not a good day (yet). */
+function FreezeRow({ date, today, onFreeze }: { date: string; today: string; onFreeze: () => void }) {
+  const data = useLifeData();
+  const check = checkFreeze({
+    freezeDays: data.freezeDays,
+    programStart: data.programStart,
+    programDays: data.programDays,
+    date,
+    today,
+    needed: true,
+  });
+  if (!check.ok && (check.reason === "future" || check.reason === "outside")) return null;
+  const left = freezesLeft(data.freezeDays, data.programStart, date);
+  const range = freezeBlockRange(data.programStart, date);
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line pt-3">
+      <button
+        type="button"
+        data-testid="freeze-day"
+        disabled={!check.ok}
+        onClick={onFreeze}
+        className="inline-flex h-11 items-center gap-2 rounded-md border border-line px-4 text-sm font-medium disabled:opacity-50"
+      >
+        <Snowflake className="size-4" aria-hidden="true" />
+        Freeze this day
+      </button>
+      <p className="text-sm text-muted" data-testid="freeze-left">
+        {left} of {FREEZES_PER_BLOCK} freezes left for days {range.from}–{range.to}. A frozen day won't break your streak.
+      </p>
+    </div>
+  );
 }

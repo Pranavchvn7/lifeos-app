@@ -112,6 +112,7 @@ export const getSharedProgress = createServerFn({ method: "GET" })
       programStart: full.programStart,
       programDays: full.programDays,
       pastPrograms: full.pastPrograms,
+      freezeDays: full.freezeDays,
     };
     return { name: link.display_name || "A LifeOS user", data: safe };
   });

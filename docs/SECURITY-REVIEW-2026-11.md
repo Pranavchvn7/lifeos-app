@@ -38,3 +38,10 @@ to make sure no change breaks the merge gate. An AI review does not replace a hu
 3. **Pre-deploy:** one new migration (`0005`, `add column if not exists`, safe to re-run, applied on staging first). Responses stay `no-store`, which now matters because the foreground refresh reads the log with a GET request.
 4. **Deep audit:** the user id still comes only from the verified session (no IDOR). `baseVersion` must be a non-negative integer or the request is refused. SQL is parameterised. A stale save writes nothing. The retry loop is capped at 4 attempts.
 5. **Attacker's view:** an attacker cannot read or overwrite another account's log by guessing versions, because every query is also keyed by the session's user id. Repeated saves are the same abuse surface as before.
+
+## Recheck for v1.2.0 (recurring to-dos)
+1. **Secrets:** nothing new.
+2. **Personal data:** the new fields (`repeat`, `spawned`) live inside the same private log. Not part of the public share view (to-dos are stripped there). The export gains a "Repeats" column in your own download only.
+3. **Pre-deploy:** no new endpoints, headers or migrations.
+4. **Deep audit:** the server validates `repeat` against a fixed list and `spawned` as a short id; anything else is dropped. The 500-task limit also stops a repeating task from creating tasks without end.
+5. **Attacker's view:** no new input reaches the server except those two validated fields; no new abuse path beyond saving the log, which was already limited per user.

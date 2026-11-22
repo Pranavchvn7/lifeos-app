@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { Check, Plus, Trash2 } from "lucide-react";
+import { Check, Plus, Repeat as RepeatIcon, Trash2 } from "lucide-react";
 import { TODO_PRIORITIES, formatPretty, todayISO, type Todo, type TodoPriority } from "@/lib/lifeos/model";
+import { REPEAT_LABEL, TODO_REPEATS, type Repeat } from "@/lib/lifeos/recurrence";
 import { useLife } from "@/lib/lifeos/store";
 import { cn } from "@/lib/utils";
 import { Field, Panel } from "./ui";
@@ -28,12 +29,14 @@ export function TodoAdder({ defaultDue = "", testId = "todo" }: { defaultDue?: s
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState<TodoPriority>("medium");
   const [due, setDue] = useState(defaultDue);
+  const [repeat, setRepeat] = useState<Repeat | "">("");
 
   function submit() {
     if (!title.trim()) return;
-    addTodo({ title, priority, due }, todayISO());
+    addTodo({ title, priority, due, ...(repeat ? { repeat } : {}) }, todayISO());
     setTitle("");
     setDue(defaultDue);
+    setRepeat("");
   }
 
   return (
@@ -88,6 +91,23 @@ export function TodoAdder({ defaultDue = "", testId = "todo" }: { defaultDue?: s
             className="h-10 rounded-md border border-line bg-paper px-2 text-base text-fg"
           />
         </label>
+        <label className="flex items-center gap-2 text-muted">
+          Repeat
+          <select
+            aria-label="Repeat"
+            data-testid={`${testId}-repeat`}
+            value={repeat}
+            onChange={(event) => setRepeat(event.target.value as Repeat | "")}
+            className="h-10 rounded-md border border-line bg-paper px-2 text-base text-fg"
+          >
+            <option value="">Never</option>
+            {TODO_REPEATS.map((r) => (
+              <option key={r} value={r}>
+                {REPEAT_LABEL[r]}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
     </div>
   );
@@ -128,6 +148,12 @@ export function TodoRow({ todo, today }: { todo: Todo; today: string }) {
             <span className={cn("rounded-full px-2 py-0.5 font-medium", PRIORITY_CLASS[todo.priority])}>
               {PRIORITY_LABEL[todo.priority]}
             </span>
+            {todo.repeat ? (
+              <span className="inline-flex items-center gap-1 text-muted" data-testid="todo-repeat-badge">
+                <RepeatIcon className="size-3" aria-hidden="true" />
+                {REPEAT_LABEL[todo.repeat]}
+              </span>
+            ) : null}
             {todo.due ? (
               <span className={cn(overdue ? "font-medium text-bad" : "text-muted")}>
                 {overdue ? "Overdue · " : "Due "}
@@ -163,7 +189,30 @@ export function TodoRow({ todo, today }: { todo: Todo; today: string }) {
                   onChange={(event) => patchTodo(todo.id, { due: event.target.value })}
                   className="h-10 rounded-md border border-line bg-paper px-2 text-base"
                 />
+                <select
+                  aria-label="Task repeat"
+                  value={todo.repeat ?? ""}
+                  onChange={(event) => {
+                    const repeat = event.target.value as Repeat | "";
+                    // A repeating task needs a date to repeat from.
+                    patchTodo(todo.id, {
+                      repeat: repeat || undefined,
+                      ...(repeat && !todo.due ? { due: today } : {}),
+                    });
+                  }}
+                  className="h-10 rounded-md border border-line bg-paper px-2 text-base"
+                >
+                  <option value="">Never repeats</option>
+                  {TODO_REPEATS.map((r) => (
+                    <option key={r} value={r}>
+                      {REPEAT_LABEL[r]}
+                    </option>
+                  ))}
+                </select>
               </div>
+              {todo.repeat ? (
+                <p className="text-xs text-subtle">Deleting this task stops the repeat. Completing it adds the next one.</p>
+              ) : null}
               <Field
                 aria-label="Task notes"
                 value={todo.notes}

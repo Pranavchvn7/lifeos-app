@@ -17,6 +17,7 @@ import {
 } from "./model";
 import { snapshotProgram } from "./score";
 import { selectData } from "./validate";
+import { toggleTodoList, type Repeat } from "./recurrence";
 
 type LifeStore = LifeData & {
   ownerId: string | null;
@@ -36,8 +37,11 @@ type LifeStore = LifeData & {
   renameHabit: (kind: "dos" | "donts", id: string, label: string) => void;
   addHabit: (kind: "dos" | "donts", label: string) => void;
   setHabitDays: (kind: "dos" | "donts", id: string, days: number[]) => void;
-  addTodo: (input: { title: string; priority?: TodoPriority; due?: string; notes?: string }, today: string) => void;
-  patchTodo: (id: string, patch: Partial<Pick<Todo, "title" | "priority" | "due" | "notes">>) => void;
+  addTodo: (
+    input: { title: string; priority?: TodoPriority; due?: string; notes?: string; repeat?: Repeat },
+    today: string,
+  ) => void;
+  patchTodo: (id: string, patch: Partial<Pick<Todo, "title" | "priority" | "due" | "notes" | "repeat">>) => void;
   toggleTodo: (id: string, today: string) => void;
   removeTodo: (id: string) => void;
   clearDoneTodos: () => void;
@@ -181,10 +185,12 @@ export const useLife = create<LifeStore>((set) => ({
             title,
             done: false,
             priority: input.priority ?? "medium",
-            due: input.due ?? "",
+            // A repeating task needs a date to repeat from: default to today.
+            due: input.due || (input.repeat ? today : ""),
             notes: (input.notes ?? "").slice(0, 1000),
             created: today,
             doneOn: "",
+            ...(input.repeat ? { repeat: input.repeat } : {}),
           },
         ],
       });
@@ -207,9 +213,7 @@ export const useLife = create<LifeStore>((set) => ({
   toggleTodo: (id, today) =>
     set((state) =>
       bump(state, {
-        todos: state.todos.map((todo) =>
-          todo.id === id ? { ...todo, done: !todo.done, doneOn: todo.done ? "" : today } : todo,
-        ),
+        todos: toggleTodoList(state.todos, id, today, () => crypto.randomUUID()),
       }),
     ),
   removeTodo: (id) => set((state) => bump(state, { todos: state.todos.filter((todo) => todo.id !== id) })),

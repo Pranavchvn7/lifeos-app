@@ -18,6 +18,7 @@ import {
   type LifeData,
   type MonthReflection,
 } from "./model";
+import { TODO_REPEATS, type Repeat } from "./recurrence";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MONTH_KEY = /^\d{4}-\d{2}$/;
@@ -195,6 +196,8 @@ function parseTodos(value: unknown): Todo[] {
       : "medium";
     const date = (v: unknown) => (ISO_DATE.test(clip(v, 10)) ? clip(v, 10) : "");
     const done = item.done === true;
+    const repeat = TODO_REPEATS.includes(item.repeat as Repeat) ? (item.repeat as Repeat) : undefined;
+    const spawned = clip(item.spawned, 64);
     todos.push({
       id,
       title,
@@ -204,6 +207,8 @@ function parseTodos(value: unknown): Todo[] {
       notes: clip(item.notes, 1000),
       created: date(item.created),
       doneOn: done ? date(item.doneOn) : "",
+      ...(repeat ? { repeat } : {}),
+      ...(done && repeat && spawned ? { spawned } : {}),
     });
   }
   return todos;

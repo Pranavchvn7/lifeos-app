@@ -61,9 +61,9 @@ export function buildExportSheets(data: LifeData, today: string): Sheet[] {
   data.dos.forEach((h) => habits.push(["Do", h.label, scheduleLabel(h)]));
   data.donts.forEach((h) => habits.push(["Don't", h.label, scheduleLabel(h)]));
 
-  const todos: Cell[][] = [["Task", "Priority", "Due", "Status", "Added", "Completed", "Notes"]];
+  const todos: Cell[][] = [["Task", "Priority", "Due", "Status", "Added", "Completed", "Notes", "Repeats"]];
   data.todos.forEach((t) =>
-    todos.push([t.title, t.priority, t.due, t.done ? "Done" : "Open", t.created, t.doneOn, t.notes]),
+    todos.push([t.title, t.priority, t.due, t.done ? "Done" : "Open", t.created, t.doneOn, t.notes, t.repeat ?? ""]),
   );
 
   const goals: Cell[][] = [["Horizon", "Goal", "Category", "Target date", "Status", "Progress %", "Notes"]];

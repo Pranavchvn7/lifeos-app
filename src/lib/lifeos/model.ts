@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import type { Repeat } from "./recurrence";
 
 export const GOOD_DAY = 0.8;
 export const DEFAULT_PROGRAM_START = "2026-09-23";
@@ -72,6 +73,10 @@ export type Todo = {
   created: string;
   /** YYYY-MM-DD the task was completed, or "". */
   doneOn: string;
+  /** Missing = a one-off task. Completing a repeating task adds its next occurrence. */
+  repeat?: Repeat;
+  /** On a completed repeating task: id of the occurrence it created (so reopening it can undo that). */
+  spawned?: string;
 };
 
 /** Weekly review, keyed in `LifeData.weeklyReviews` by the Monday (YYYY-MM-DD) of that Mon–Sun week. */

@@ -1,4 +1,6 @@
 import { getPushStatus, removePushSubscription, savePushSubscription } from "./push.functions";
+import { saveReminderPrefs, updateReminderTimezone } from "./reminder.functions";
+import { setPushActiveHere, type ReminderPrefs } from "./reminders";
 
 /** Can this browser do push notifications, and if not, why not? */
 export type PushSupport = "ok" | "unsupported" | "needs-install-ios";
@@ -63,6 +65,7 @@ export async function enablePush(): Promise<EnableResult> {
       await subscription.unsubscribe().catch(() => undefined);
       return "limit";
     }
+    setPushActiveHere(true);
     return "enabled";
   } catch {
     return "failed";
@@ -72,12 +75,42 @@ export async function enablePush(): Promise<EnableResult> {
 export async function disablePush(): Promise<boolean> {
   try {
     const subscription = await currentSubscription();
-    if (!subscription) return true;
+    if (!subscription) {
+      setPushActiveHere(false);
+      return true;
+    }
     const endpoint = subscription.endpoint;
     await subscription.unsubscribe().catch(() => undefined);
+    setPushActiveHere(false);
     await removePushSubscription({ data: { endpoint } });
     return true;
   } catch {
     return false;
+  }
+}
+
+export function deviceTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
+/** Tell the server the reminder settings (and this phone's time zone) so scheduled pushes arrive at the right time. */
+export async function syncReminderPrefs(prefs: Pick<ReminderPrefs, "enabled" | "time" | "weekly">): Promise<void> {
+  try {
+    await saveReminderPrefs({ data: { enabled: prefs.enabled, time: prefs.time, weekly: prefs.weekly, tz: deviceTimeZone() } });
+  } catch {
+    /* settings are saved on this device either way; the next change tries again */
+  }
+}
+
+/** On app open: keep the saved time zone right if the phone has moved. */
+export async function syncTimeZone(): Promise<void> {
+  try {
+    await updateReminderTimezone({ data: { tz: deviceTimeZone() } });
+  } catch {
+    /* not critical */
   }
 }

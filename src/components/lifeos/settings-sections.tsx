@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { signOut } from "@/lib/auth/client";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
@@ -19,9 +19,17 @@ import {
   type Habit,
   type LifeData,
 } from "@/lib/lifeos/model";
-import { disablePush, currentSubscription, enablePush, pushSupport, registerWorker, type PushSupport } from "@/lib/lifeos/push-client";
+import {
+  currentSubscription,
+  disablePush,
+  enablePush,
+  pushSupport,
+  registerWorker,
+  syncReminderPrefs,
+  type PushSupport,
+} from "@/lib/lifeos/push-client";
 import { getPushStatus, sendTestPush, type PushStatus } from "@/lib/lifeos/push.functions";
-import { showNotification, useReminderPrefs } from "@/lib/lifeos/reminders";
+import { setPushActiveHere, showNotification, useReminderPrefs } from "@/lib/lifeos/reminders";
 import { createShareLink, getShareStatus, revokeShareLink } from "@/lib/lifeos/share.functions";
 import { useLife } from "@/lib/lifeos/store";
 import { selectData } from "@/lib/lifeos/validate";
@@ -210,6 +218,18 @@ function HabitRow({
 export function ReminderSection() {
   const { prefs, permission, update, enable } = useReminderPrefs();
 
+  // Keep the server's copy of these settings in step, so scheduled push reminders arrive at the right time.
+  // (Skipped on first render, so opening this screen never overwrites settings made on another device.)
+  const firstRun = useRef(true);
+  useEffect(() => {
+    if (firstRun.current) {
+      firstRun.current = false;
+      return;
+    }
+    const id = window.setTimeout(() => void syncReminderPrefs(prefs), 600);
+    return () => window.clearTimeout(id);
+  }, [prefs.enabled, prefs.time, prefs.weekly]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="space-y-3" data-testid="reminder-section">
       <p className="text-sm text-muted">
@@ -281,6 +301,7 @@ function PushControls() {
   const [status, setStatus] = useState<PushStatus | null>(null);
   const [thisDevice, setThisDevice] = useState(false);
   const [busy, setBusy] = useState(false);
+  const { prefs } = useReminderPrefs();
 
   async function refresh() {
     try {
@@ -288,7 +309,9 @@ function PushControls() {
     } catch {
       setStatus(null);
     }
-    setThisDevice((await currentSubscription()) !== null);
+    const here = (await currentSubscription()) !== null;
+    setThisDevice(here);
+    setPushActiveHere(here);
   }
 
   useEffect(() => {
@@ -304,7 +327,10 @@ function PushControls() {
     setBusy(true);
     const result = await enablePush();
     setBusy(false);
-    if (result === "enabled") toast.success("Phone notifications are on for this device.");
+    if (result === "enabled") {
+      void syncReminderPrefs(prefs);
+      toast.success("Phone notifications are on for this device.");
+    }
     else if (result === "denied") toast.error("Notifications are blocked. Allow them in your browser or phone settings, then try again.");
     else if (result === "not-configured") toast.error("Push notifications aren't set up on the server yet.");
     else if (result === "limit") toast.error("You already have the maximum number of devices. Turn one off first.");
@@ -360,6 +386,11 @@ function PushControls() {
               ? `On for this device (${status?.devices ?? 1} device${(status?.devices ?? 1) === 1 ? "" : "s"} in total).`
               : "Off for this device."}
           </p>
+          <p className="text-xs text-subtle" data-testid="push-schedule-note">
+            {prefs.enabled
+              ? `Your daily reminder${prefs.weekly ? " and Sunday weekly review" : ""} will arrive as a push notification at about ${prefs.time}, even when the app is closed (it can be up to 10 minutes late). If you have already logged your day, it isn't sent.`
+              : "Turn on \"Daily reminder to log my day\" above to get it as a push notification too."}
+          </p>
           <div className="flex flex-wrap gap-2">
             {thisDevice ? (
               <button type="button" data-testid="push-disable" className={btn} disabled={busy} onClick={() => void turnOff()}>
@@ -382,13 +413,15 @@ function PushControls() {
 
 // ── export ──────────────────────────────────────────────────────────────────
 
-export function ExportSection({ onImportError, onImported }: { onImportError: (m: string) => void; onImported: () => void }) {
+export function ExportSection({ onImported }: { onImported: () => void }) {
   const data = useLifeData();
   const replace = useLife((s) => s.replace);
   const today = todayISO();
   const [pending, setPending] = useState<{ data: LifeData; meta: BackupMeta } | null>(null);
   const [busy, setBusy] = useState(false);
   const [previousAt, setPreviousAt] = useState<string | null>(null);
+  const [importError, setImportError] = useState("");
+  const onImportError = setImportError;
 
   async function refreshPrevious() {
     try {
@@ -402,6 +435,7 @@ export function ExportSection({ onImportError, onImported }: { onImportError: (m
   }, []);
 
   function chooseFile(file: File) {
+    setImportError("");
     if (file.size > BACKUP_MAX_BYTES) {
       onImportError("That file is too large to be a LifeOS backup.");
       return;
@@ -534,6 +568,11 @@ export function ExportSection({ onImportError, onImported }: { onImportError: (m
             </button>
           ) : null}
         </div>
+        {importError ? (
+          <p role="alert" data-testid="import-error" className="mt-2 text-sm text-bad">
+            {importError}
+          </p>
+        ) : null}
         {previousAt ? (
           <p className="mt-2 text-xs text-muted">
             "Undo last import" goes back to your data as it was on {new Date(previousAt).toLocaleString()}.

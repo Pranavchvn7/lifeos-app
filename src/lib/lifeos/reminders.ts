@@ -15,6 +15,25 @@ export type ReminderPrefs = {
 };
 
 const KEY = "lifeos-reminders";
+const PUSH_KEY = "lifeos-push-active";
+
+/** Is phone push on for this device? Then the server sends the reminder, so the app must not show a second one. */
+export function isPushActiveHere(): boolean {
+  try {
+    return window.localStorage.getItem(PUSH_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function setPushActiveHere(on: boolean): void {
+  try {
+    if (on) window.localStorage.setItem(PUSH_KEY, "1");
+    else window.localStorage.removeItem(PUSH_KEY);
+  } catch {
+    /* storage unavailable */
+  }
+}
 export const DEFAULT_PREFS: ReminderPrefs = { enabled: false, time: "20:00", weekly: true, lastDaily: "", lastWeekly: "" };
 
 function parsePrefs(raw: string): ReminderPrefs {
@@ -141,12 +160,12 @@ export function useReminderEngine(opts: {
       update({ lastDaily: today });
       const message = "Time to log your day in LifeOS.";
       onFire?.(message);
-      void showNotification("LifeOS", message);
+      if (!isPushActiveHere()) void showNotification("LifeOS", message);
     } else if (prefs.weekly && reviewPending && prefs.lastWeekly !== today) {
       update({ lastWeekly: today });
       const message = "Your weekly review is ready. Take two minutes to reflect.";
       onFire?.(message);
-      void showNotification("LifeOS weekly review", message);
+      if (!isPushActiveHere()) void showNotification("LifeOS weekly review", message);
     }
   }, [now, prefs, needsLogToday, reviewPending, today, update, onFire]);
 

@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ShareTokenRouteImport } from './routes/share.$token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiCronRemindersRouteImport } from './routes/api/cron/reminders'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,18 +35,25 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronRemindersRoute = ApiCronRemindersRouteImport.update({
+  id: '/api/cron/reminders',
+  path: '/api/cron/reminders',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/share/$token': typeof ShareTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/reminders': typeof ApiCronRemindersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/share/$token': typeof ShareTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/reminders': typeof ApiCronRemindersRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,21 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/share/$token': typeof ShareTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/reminders': typeof ApiCronRemindersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/share/$token' | '/api/auth/$'
+  fullPaths:
+    '/' | '/login' | '/share/$token' | '/api/auth/$' | '/api/cron/reminders'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/share/$token' | '/api/auth/$'
-  id: '__root__' | '/' | '/login' | '/share/$token' | '/api/auth/$'
+  to: '/' | '/login' | '/share/$token' | '/api/auth/$' | '/api/cron/reminders'
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/share/$token'
+    | '/api/auth/$'
+    | '/api/cron/reminders'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +83,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ShareTokenRoute: typeof ShareTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiCronRemindersRoute: typeof ApiCronRemindersRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +116,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/reminders': {
+      id: '/api/cron/reminders'
+      path: '/api/cron/reminders'
+      fullPath: '/api/cron/reminders'
+      preLoaderRoute: typeof ApiCronRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,6 +131,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ShareTokenRoute: ShareTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiCronRemindersRoute: ApiCronRemindersRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

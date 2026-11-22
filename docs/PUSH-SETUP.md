@@ -24,6 +24,16 @@ Account & settings -> Reminders -> **Turn on phone notifications** -> allow -> *
 - iPhone (iOS 16.4+): first Share -> **Add to Home Screen**, open LifeOS from the new icon, then do the steps above.
 - If you replace the keys later, every device must turn notifications off and on again.
 
+## 4. Scheduled reminders (daily "log your day" and the Sunday review)
+The app cannot wake itself up, so a free GitHub schedule asks it every 10 minutes whether a reminder is due.
+1. Make a secret: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+2. Vercel -> Environment Variables: `CRON_SECRET` = that value, **Production only**. Redeploy.
+3. GitHub -> repository **Settings -> Secrets and variables -> Actions**: a **secret** `CRON_SECRET` with the same value, and (if you do not already have `E2E_PROD_URL`) a **variable** `LIFEOS_PROD_URL` = your production address, for example `https://your-app.vercel.app`.
+4. Actions -> **send-reminders** -> **Run workflow** once. A green run that prints `{"ok":true,...}` means it works. (Green with "not set up yet" means a variable or secret is missing.)
+5. In the app: Reminders -> turn on "Daily reminder to log my day", pick a time, and turn on phone notifications on your phone.
+
+GitHub can start a run a few minutes late, so a reminder may arrive 10-15 minutes after the chosen time. GitHub also pauses schedules in a repository with no activity for 60 days; any commit or a manual run restarts it.
+
 ## Notes
 - The private key never leaves the server. The public key is shown to the browser (that is normal).
 - Each device registers an address that only the real browser push services can have; anything else is refused.

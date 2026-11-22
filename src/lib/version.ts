@@ -1,2 +1,2 @@
 /** Shown at the bottom of Account & settings so you can tell which release your phone is running. */
-export const APP_VERSION = "1.5.0";
+export const APP_VERSION = "1.6.0";

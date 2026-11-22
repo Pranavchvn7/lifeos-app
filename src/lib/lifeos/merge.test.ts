@@ -21,6 +21,7 @@ function blank(): LifeData {
     programStart: "2026-09-23",
     programDays: 90,
     pastPrograms: [],
+    freezeDays: {},
   };
 }
 const todo = (id: string, title: string) => ({

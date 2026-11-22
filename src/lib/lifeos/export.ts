@@ -37,7 +37,7 @@ export function buildExportSheets(data: LifeData, today: string): Sheet[] {
       d.dontsTotal,
       d.dontsTotal ? Math.round(d.dontsPct * 100) : "",
       d.rest ? "" : Math.round(d.overall * 100),
-      d.rest ? "Rest day" : yesNo(d.good),
+      d.frozen ? "Frozen" : d.rest ? "Rest day" : yesNo(d.good),
       data.journals[d.date]?.mood ?? "",
       data.oneLines[d.date] ?? "",
     ]);

@@ -18,6 +18,7 @@ import {
 import { snapshotProgram } from "./score";
 import { selectData } from "./validate";
 import { toggleTodoList, type Repeat } from "./recurrence";
+import { checkFreeze } from "./freeze";
 
 type LifeStore = LifeData & {
   ownerId: string | null;
@@ -50,6 +51,8 @@ type LifeStore = LifeData & {
   removeHabit: (kind: "dos" | "donts", id: string) => void;
   patchReflection: (month: string, patch: Partial<MonthReflection>) => void;
   replace: (data: LifeData) => void;
+  /** Freeze or unfreeze a day. Freezing is refused (returns false) if it is not allowed; see freeze.ts. */
+  setFrozen: (date: string, frozen: boolean, today: string, needed: boolean) => boolean;
   /** Put data that came from the server (another device) into the store. `dirty` = it still has to be saved. */
   applyRemote: (data: LifeData, dirty: boolean) => void;
 };
@@ -263,5 +266,26 @@ export const useLife = create<LifeStore>((set) => ({
       });
     }),
   replace: (data) => set((state) => ({ ...data, revision: state.revision + 1, ready: true })),
+  setFrozen: (date, frozen, today, needed) => {
+    const state = useLife.getState();
+    if (frozen) {
+      const check = checkFreeze({
+        freezeDays: state.freezeDays,
+        programStart: state.programStart,
+        programDays: state.programDays,
+        date,
+        today,
+        needed,
+      });
+      if (!check.ok) return false;
+    }
+    set((s) => {
+      const next = { ...s.freezeDays };
+      if (frozen) next[date] = true;
+      else delete next[date];
+      return bump(s, { freezeDays: next });
+    });
+    return true;
+  },
   applyRemote: (data, dirty) => set((state) => ({ ...data, revision: dirty ? state.revision + 1 : state.revision })),
 }));

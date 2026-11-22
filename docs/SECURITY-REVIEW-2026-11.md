@@ -45,3 +45,10 @@ to make sure no change breaks the merge gate. An AI review does not replace a hu
 3. **Pre-deploy:** no new endpoints, headers or migrations.
 4. **Deep audit:** the server validates `repeat` against a fixed list and `spawned` as a short id; anything else is dropped. The 500-task limit also stops a repeating task from creating tasks without end.
 5. **Attacker's view:** no new input reaches the server except those two validated fields; no new abuse path beyond saving the log, which was already limited per user.
+
+## Recheck for v1.3.0 (streak freeze)
+1. **Secrets:** nothing new.
+2. **Personal data:** one new field (`freezeDays`, a list of dates) inside the same private log; it is also kept in the public share summary only so the shared streak matches yours (dates only, no text).
+3. **Pre-deploy:** no new endpoints, headers, variables or migrations.
+4. **Deep audit:** the server accepts `freezeDays` only as ISO-date keys with the value `true`, at most 400 entries; anything else is refused. The "2 per 30 days" rule is enforced in the app only; a modified client could store more freezes, which only affects that user's own stats.
+5. **Attacker's view:** no other user's data is reachable through this field; nothing is rendered as HTML.

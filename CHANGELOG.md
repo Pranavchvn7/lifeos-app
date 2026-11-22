@@ -2,6 +2,15 @@
 
 Versions are numbered `major.minor.patch`. The version also shows at the bottom of Account & settings.
 
+## v1.3.0 - 2026-11-23 - Streak freeze
+- A missed or bad day can be frozen with **Freeze this day** (Today screen, under the score). A frozen day does not break
+  your streak and is left out of your averages, exactly like a rest day. It shows as "Frozen day" and as "Frozen" in the export.
+- You get 2 freezes in each 30-day block of your program (days 1-30, 31-60, ...), so they cannot all be used at once.
+  Unfreeze a day to get the freeze back. Future days and days outside the program cannot be frozen, and neither can a good day.
+- Per-habit streaks and consistency percentages also skip frozen days.
+- No database change (the freezes are stored inside your log). Unit tests added for the freeze rules.
+- Note: the 2-per-block limit is checked in the app, not on the server. It is a personal discipline aid, not a security control.
+
 ## v1.2.0 - 2026-11-23 - Recurring to-dos
 - To-dos can repeat: every day, weekdays, every week or every month. Pick **Repeat** when adding a task, or change it
   in the task's details.

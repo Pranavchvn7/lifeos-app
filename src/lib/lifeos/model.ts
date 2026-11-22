@@ -113,6 +113,8 @@ export type LifeData = {
   programStart: string;
   programDays: number;
   pastPrograms: PastProgram[];
+  /** Days protected by a streak freeze (date -> true). A frozen day behaves like a rest day. */
+  freezeDays: Record<string, boolean>;
 };
 
 // ── dates ───────────────────────────────────────────────────────────────────
@@ -308,6 +310,7 @@ export function createBlank(start: string = todayISO()): LifeData {
     programStart: start,
     programDays: DEFAULT_PROGRAM_DAYS,
     pastPrograms: [],
+    freezeDays: {},
   };
 }
 

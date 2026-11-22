@@ -17,11 +17,12 @@ export function useLifeData(): LifeData {
   const programStart = useLife((s) => s.programStart);
   const programDays = useLife((s) => s.programDays);
   const pastPrograms = useLife((s) => s.pastPrograms);
+  const freezeDays = useLife((s) => s.freezeDays);
   return useMemo(
     () => ({
       dos, donts, doChecks, dontChecks, journals, oneLines, goals, reflections,
-      todos, weeklyReviews, programStart, programDays, pastPrograms,
+      todos, weeklyReviews, programStart, programDays, pastPrograms, freezeDays,
     }),
-    [dos, donts, doChecks, dontChecks, journals, oneLines, goals, reflections, todos, weeklyReviews, programStart, programDays, pastPrograms],
+    [dos, donts, doChecks, dontChecks, journals, oneLines, goals, reflections, todos, weeklyReviews, programStart, programDays, pastPrograms, freezeDays],
   );
 }

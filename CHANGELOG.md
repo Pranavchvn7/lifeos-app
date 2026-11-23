@@ -2,6 +2,19 @@
 
 Versions are numbered `major.minor.patch`. The version also shows at the bottom of Account & settings.
 
+## v2.0.0 - 2026-11-23 - New app shell and Settings page
+First release of the big "daily planner" update (plan: v2.0 shell, v2.1 amount habits, v2.2 habit dashboards, v2.3 timer,
+v2.4 date notes, v2.5 tasks and shopping lists, v2.6 goal tracker, v2.7 achievements, v2.8 daily planner without the 90-day timeline).
+- **Settings is now a full page** (it was a popup): Account & settings, with a back arrow. It has its own address (`/settings`).
+- **Every section has its own address and works with the browser's back button:** Today `/`, To-do `/todo`, Board `/board`,
+  Journal `/journal`, Goals `/goals`, Settings `/settings`. Reloading a page keeps you on it.
+- **New phone navigation:** one bottom bar that scrolls sideways. The section you are in is highlighted and scrolled into view,
+  the next item is always partly visible, soft edges with arrows show that there is more on that side, and the first time
+  you see it the bar nudges itself to show it can be swiped. Settings is now in the bar too.
+- Desktop: the sidebar is unchanged in look; the Settings link highlights when you are on that page.
+- No data change and no database change. Same features, same data.
+- Automated tests: every test id the smoke tests use was kept (navigation items, tab markers, settings button, settings page container, back button).
+
 ## v1.6.0 - 2026-11-23 - Scheduled reminder pushes (part 2) and import message fix
 - **Your daily reminder and the weekly review now arrive as push notifications**, even when LifeOS is closed, at about the
   time you chose (up to ~10 minutes late). They are skipped if you have already logged your day, sent once a day, and never

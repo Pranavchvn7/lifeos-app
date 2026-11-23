@@ -73,3 +73,10 @@ to make sure no change breaks the merge gate. An AI review does not replace a hu
 3. **Pre-deploy:** one migration (`0008`, `create table if not exists`). The new endpoint is closed (503) when `CRON_SECRET` is missing or shorter than 32 characters, returns `no-store`, and logs only an error name on failure.
 4. **Deep audit:** the cron endpoint accepts POST only and compares the secret in constant time (both sides hashed first), so it cannot be timed or brute-forced cheaply; without the secret it does nothing. Settings are validated (boolean flags, HH:MM, a real time zone name up to 64 characters). All queries are parameterised and keyed by the session's user id. At most 500 users are processed per run. A reminder counts as sent only after a device accepted it, so a failed send is retried, never silently dropped or repeated.
 5. **Attacker's view:** guessing or replaying the endpoint without the secret yields only 401. A leaked secret would let someone trigger reminder runs early, but a user still receives at most one daily and one weekly push per day (dates are recorded), and no data is returned; rotate it by changing both copies. The import message fix changes only what is displayed.
+
+## Recheck for v2.0.0 (new app shell and Settings page)
+1. **Secrets:** nothing new.
+2. **Personal data:** no new data is collected or stored; the Settings page shows the same sections as the popup did.
+3. **Pre-deploy:** no migration, endpoint, header or dependency change. New addresses (`/todo`, `/board`, `/journal`, `/goals`, `/settings`) are pages inside the same signed-in frame: a visitor who is not signed in is redirected to the sign-in page exactly as before, and the data itself is still only available through the authenticated server functions.
+4. **Deep audit:** the navigation only links to fixed in-app addresses (no address is built from user input). The back button only uses the browser's own history or goes to Today.
+5. **Attacker's view:** opening any of the new addresses while signed out shows only a loading screen and then the sign-in page; no log data is part of the page HTML.

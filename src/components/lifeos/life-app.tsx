@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, LayoutDashboard, ListChecks, ListTodo, Settings, Target } from "lucide-react";
+import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Settings } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { clampProgram, createBlank, formatMonthDay, programOf, todayISO } from "@/lib/lifeos/model";
@@ -17,30 +18,15 @@ import type { LifeData } from "@/lib/lifeos/model";
 import { useTheme } from "@/lib/lifeos/theme";
 import { cn } from "@/lib/utils";
 import { AppHeader } from "./app-header";
-import { BoardView } from "./board-view";
 import { BootScreen } from "./boot-screen";
-import { GoalsView } from "./goals-view";
-import { JournalView } from "./journal-view";
-import { SettingsDialog } from "./settings-dialog";
-import { TodayView } from "./today-view";
-import { TodoView } from "./todo-view";
-
-type View = "today" | "todo" | "board" | "journal" | "goals";
-
-const NAV: { id: View; label: string; icon: typeof ListChecks }[] = [
-  { id: "today", label: "Today", icon: ListChecks },
-  { id: "todo", label: "To-do", icon: ListTodo },
-  { id: "board", label: "Board", icon: LayoutDashboard },
-  { id: "journal", label: "Journal", icon: BookOpen },
-  { id: "goals", label: "Goals", icon: Target },
-];
+import { BottomNav } from "./bottom-nav";
+import { NAV_ITEMS, navIdForPath, type NavItem } from "./nav-items";
+import { ShellContext } from "./shell-context";
 
 export function LifeApp({ userId }: { userId: string }) {
   const ready = useLife((state) => state.ready && state.ownerId === userId);
   const revision = useLife((state) => state.revision);
-  const [view, setView] = useState<View>("today");
   const [pickedDate, setPickedDate] = useState<string | null>(null);
-  const [settings, setSettings] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [mounted, setMounted] = useState(false);
@@ -48,6 +34,14 @@ export function LifeApp({ userId }: { userId: string }) {
   // What the server held when this device last read or saved it (the "base" for merging) and its version.
   const base = useRef<{ data: LifeData; version: number } | null>(null);
   const lastSync = useRef(0);
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const active = navIdForPath(pathname);
+
+  // Each section opens at the top, like a new page.
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [pathname]);
   const { theme, toggle: toggleTheme } = useTheme();
   const data = useLifeData();
   const program = programOf(data);
@@ -221,110 +215,73 @@ export function LifeApp({ userId }: { userId: string }) {
 
   function openDate(iso: string) {
     setDate(clampProgram(iso, program));
-    setView("today");
+    void navigate({ to: "/" });
   }
 
+  const goSettings = () => void navigate({ to: "/settings" });
+
   return (
-    <div className="min-h-dvh bg-paper text-fg">
-      <div className="mx-auto grid min-h-dvh max-w-6xl md:grid-cols-[15rem_1fr]">
-        <aside className="hidden border-r border-line md:sticky md:top-0 md:flex md:h-dvh md:flex-col md:px-4 md:py-6">
-          <p className="font-display text-2xl font-medium tracking-tight">LifeOS</p>
-          <p className="mt-1 text-sm text-muted" data-testid="program-range">
-            {formatMonthDay(program.start)} – {formatMonthDay(program.end)} {program.end.slice(0, 4)}
-          </p>
-          <nav className="mt-6 flex flex-col gap-1">
-            {NAV.map((item) => (
-              <NavButton key={item.id} item={item} active={view === item.id} onClick={() => setView(item.id)} testId={`nav-desktop-${item.id}`} />
-            ))}
-          </nav>
-          <div className="mt-auto space-y-3 pt-6">
-            <SaveNote state={saveState} />
-            <button
-              type="button"
-              data-testid="settings-open"
-              onClick={() => setSettings(true)}
-              className="flex h-11 w-full items-center gap-2 rounded-md px-3 text-sm font-medium text-muted"
-            >
-              <Settings className="size-4" />
-              Account &amp; settings
-            </button>
+    <ShellContext.Provider value={{ date, setDate, openDate, reminderDue }}>
+      <div className="min-h-dvh bg-paper text-fg">
+        <div className="mx-auto grid min-h-dvh max-w-6xl md:grid-cols-[15rem_1fr]">
+          <aside className="hidden border-r border-line md:sticky md:top-0 md:flex md:h-dvh md:flex-col md:px-4 md:py-6">
+            <p className="font-display text-2xl font-medium tracking-tight">LifeOS</p>
+            <p className="mt-1 text-sm text-muted" data-testid="program-range">
+              {formatMonthDay(program.start)} – {formatMonthDay(program.end)} {program.end.slice(0, 4)}
+            </p>
+            <nav aria-label="Main" className="mt-6 flex flex-col gap-1">
+              {NAV_ITEMS.filter((item) => item.id !== "settings").map((item) => (
+                <NavButton key={item.id} item={item} active={active === item.id} testId={`nav-desktop-${item.id}`} />
+              ))}
+            </nav>
+            <div className="mt-auto space-y-3 pt-6">
+              <SaveNote state={saveState} />
+              <Link
+                to="/settings"
+                data-testid="settings-open"
+                aria-current={active === "settings" ? "page" : undefined}
+                className={cn(
+                  "flex h-11 w-full items-center gap-2 rounded-md px-3 text-sm font-medium",
+                  active === "settings" ? "bg-inset text-fg" : "text-muted",
+                )}
+              >
+                <Settings className="size-4" />
+                Account &amp; settings
+              </Link>
+            </div>
+          </aside>
+
+          <div className="min-w-0">
+            <AppHeader theme={theme} onToggleTheme={toggleTheme} onSettings={goSettings} saveNote={saveNoteText(saveState)} />
+            <main className="px-4 py-5 pb-28 md:px-8 md:py-8 md:pb-10">
+              <Outlet />
+            </main>
           </div>
-        </aside>
-
-        <div className="min-w-0">
-          <AppHeader
-            theme={theme}
-            onToggleTheme={toggleTheme}
-            onSettings={() => setSettings(true)}
-            saveNote={saveNoteText(saveState)}
-          />
-          <main className="px-4 py-5 pb-28 md:px-8 md:py-8 md:pb-10">
-            {view === "today" ? (
-              <TodayView
-                date={date}
-                onDate={setDate}
-                onSetup={() => setSettings(true)}
-                onOpenTodos={() => setView("todo")}
-                reminderDue={reminderDue}
-              />
-            ) : null}
-            {view === "todo" ? <TodoView /> : null}
-            {view === "board" ? <BoardView data={data} onOpenDate={openDate} onSetup={() => setSettings(true)} /> : null}
-            {view === "journal" ? <JournalView onOpenDate={openDate} /> : null}
-            {view === "goals" ? <GoalsView /> : null}
-          </main>
         </div>
+
+        <BottomNav active={active} />
+
+        <Toaster position="top-center" theme={theme} richColors closeButton />
       </div>
-
-      <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:hidden">
-        {NAV.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            data-testid={`nav-mobile-${item.id}`}
-            onClick={() => setView(item.id)}
-            className={cn(
-              "flex h-16 flex-col items-center justify-center gap-1 text-xs font-medium",
-              view === item.id ? "text-accent" : "text-muted",
-            )}
-          >
-            <item.icon className="size-5" />
-            {item.label}
-          </button>
-        ))}
-      </nav>
-
-      {settings ? <SettingsDialog onClose={() => setSettings(false)} /> : null}
-      <Toaster position="top-center" theme={theme} richColors closeButton />
-    </div>
+    </ShellContext.Provider>
   );
 }
 
-function NavButton({
-  item,
-  active,
-  onClick,
-  testId,
-}: {
-  item: (typeof NAV)[number];
-  active: boolean;
-  onClick: () => void;
-  testId: string;
-}) {
+function NavButton({ item, active, testId }: { item: NavItem; active: boolean; testId: string }) {
   const Icon = item.icon;
   return (
-    <button
-      type="button"
+    <Link
+      to={item.to}
       data-testid={testId}
-      onClick={onClick}
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "flex h-11 items-center gap-2 rounded-md px-3 text-sm font-medium",
-        active ? "bg-surface text-fg" : "text-muted",
+        "flex h-11 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors",
+        active ? "bg-inset text-fg" : "text-muted hover:bg-inset/60",
       )}
     >
       <Icon className="size-4" />
       {item.label}
-    </button>
+    </Link>
   );
 }
 

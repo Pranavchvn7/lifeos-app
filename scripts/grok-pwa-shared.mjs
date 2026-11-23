@@ -163,7 +163,7 @@ export function renderWebManifest(hostHeader) {
     {
       name,
       short_name: name,
-      description: "Track your daily habits and goals over a 90-day program.",
+      description: "Your daily planner and tracker for habits, tasks and goals.",
       id: "/",
       start_url: "/",
       scope: "/",

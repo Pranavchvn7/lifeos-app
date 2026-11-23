@@ -9,21 +9,56 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppRouteImport } from './routes/_app'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as AppIndexRouteImport } from './routes/_app.index'
+import { Route as AppBoardRouteImport } from './routes/_app.board'
+import { Route as AppGoalsRouteImport } from './routes/_app.goals'
+import { Route as AppJournalRouteImport } from './routes/_app.journal'
+import { Route as AppSettingsRouteImport } from './routes/_app.settings'
+import { Route as AppTodoRouteImport } from './routes/_app.todo'
 import { Route as ShareTokenRouteImport } from './routes/share.$token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCronRemindersRouteImport } from './routes/api/cron/reminders'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBoardRoute = AppBoardRouteImport.update({
+  id: '/board',
+  path: '/board',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppGoalsRoute = AppGoalsRouteImport.update({
+  id: '/goals',
+  path: '/goals',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppJournalRoute = AppJournalRouteImport.update({
+  id: '/journal',
+  path: '/journal',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTodoRoute = AppTodoRouteImport.update({
+  id: '/todo',
+  path: '/todo',
+  getParentRoute: () => AppRoute,
 } as any)
 const ShareTokenRoute = ShareTokenRouteImport.update({
   id: '/share/$token',
@@ -42,44 +77,85 @@ const ApiCronRemindersRoute = ApiCronRemindersRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof AppIndexRoute
   '/login': typeof LoginRoute
+  '/board': typeof AppBoardRoute
+  '/goals': typeof AppGoalsRoute
+  '/journal': typeof AppJournalRoute
+  '/settings': typeof AppSettingsRoute
+  '/todo': typeof AppTodoRoute
   '/share/$token': typeof ShareTokenRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/reminders': typeof ApiCronRemindersRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/board': typeof AppBoardRoute
+  '/goals': typeof AppGoalsRoute
+  '/journal': typeof AppJournalRoute
+  '/settings': typeof AppSettingsRoute
+  '/todo': typeof AppTodoRoute
   '/share/$token': typeof ShareTokenRoute
+  '/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/reminders': typeof ApiCronRemindersRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/_app/board': typeof AppBoardRoute
+  '/_app/goals': typeof AppGoalsRoute
+  '/_app/journal': typeof AppJournalRoute
+  '/_app/settings': typeof AppSettingsRoute
+  '/_app/todo': typeof AppTodoRoute
   '/share/$token': typeof ShareTokenRoute
+  '/_app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/reminders': typeof ApiCronRemindersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/login' | '/share/$token' | '/api/auth/$' | '/api/cron/reminders'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/share/$token' | '/api/auth/$' | '/api/cron/reminders'
-  id:
-    | '__root__'
     | '/'
     | '/login'
+    | '/board'
+    | '/goals'
+    | '/journal'
+    | '/settings'
+    | '/todo'
     | '/share/$token'
+    | '/api/auth/$'
+    | '/api/cron/reminders'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/login'
+    | '/board'
+    | '/goals'
+    | '/journal'
+    | '/settings'
+    | '/todo'
+    | '/share/$token'
+    | '/'
+    | '/api/auth/$'
+    | '/api/cron/reminders'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/login'
+    | '/_app/board'
+    | '/_app/goals'
+    | '/_app/journal'
+    | '/_app/settings'
+    | '/_app/todo'
+    | '/share/$token'
+    | '/_app/'
     | '/api/auth/$'
     | '/api/cron/reminders'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
   ShareTokenRoute: typeof ShareTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -88,11 +164,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
+    '/_app': {
+      id: '/_app'
+      path: ''
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -101,6 +177,48 @@ declare module '@tanstack/react-router' {
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/': {
+      id: '/_app/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/board': {
+      id: '/_app/board'
+      path: '/board'
+      fullPath: '/board'
+      preLoaderRoute: typeof AppBoardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/goals': {
+      id: '/_app/goals'
+      path: '/goals'
+      fullPath: '/goals'
+      preLoaderRoute: typeof AppGoalsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/journal': {
+      id: '/_app/journal'
+      path: '/journal'
+      fullPath: '/journal'
+      preLoaderRoute: typeof AppJournalRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/todo': {
+      id: '/_app/todo'
+      path: '/todo'
+      fullPath: '/todo'
+      preLoaderRoute: typeof AppTodoRouteImport
+      parentRoute: typeof AppRoute
     }
     '/share/$token': {
       id: '/share/$token'
@@ -126,8 +244,28 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppRouteChildren {
+  AppBoardRoute: typeof AppBoardRoute
+  AppGoalsRoute: typeof AppGoalsRoute
+  AppJournalRoute: typeof AppJournalRoute
+  AppSettingsRoute: typeof AppSettingsRoute
+  AppTodoRoute: typeof AppTodoRoute
+  AppIndexRoute: typeof AppIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppBoardRoute: AppBoardRoute,
+  AppGoalsRoute: AppGoalsRoute,
+  AppJournalRoute: AppJournalRoute,
+  AppSettingsRoute: AppSettingsRoute,
+  AppTodoRoute: AppTodoRoute,
+  AppIndexRoute: AppIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
   ShareTokenRoute: ShareTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

@@ -1,0 +1,30 @@
+name: send-reminders
+
+# Every 10 minutes, ask the production app to send any push reminders that are due.
+# GitHub may start a run a few minutes late; reminders therefore arrive within about 10-15 minutes of the chosen time.
+# Setup (once): repository secret CRON_SECRET (same value as in Vercel), repository variable LIFEOS_PROD_URL (or E2E_PROD_URL).
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ask the app to send due reminders
+        env:
+          APP_URL: ${{ vars.LIFEOS_PROD_URL || vars.E2E_PROD_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "Scheduled reminders are not set up yet (needs the CRON_SECRET secret and the LIFEOS_PROD_URL variable). Nothing to do."
+            exit 0
+          fi
+          curl --fail --silent --show-error --max-time 90 -X POST \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "${APP_URL%/}/api/cron/reminders"
+          echo

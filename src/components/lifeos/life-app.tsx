@@ -4,6 +4,7 @@ import { Toaster, toast } from "sonner";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { clampProgram, createBlank, formatMonthDay, programOf, todayISO } from "@/lib/lifeos/model";
 import { computeBadges } from "@/lib/lifeos/badges";
+import { syncTimeZone } from "@/lib/lifeos/push-client";
 import { useReminderEngine } from "@/lib/lifeos/reminders";
 import { buildScores } from "@/lib/lifeos/score";
 import { useLifeData } from "@/lib/lifeos/use-life-data";
@@ -125,6 +126,11 @@ export function LifeApp({ userId }: { userId: string }) {
     }, 400);
     return () => window.clearTimeout(handle);
   }, [ready, revision]);
+
+  // Keep the server's idea of this phone's time zone right (scheduled reminders are sent in local time).
+  useEffect(() => {
+    if (ready) void syncTimeZone();
+  }, [ready]);
 
   // When the app comes back to the foreground (a phone app can sit open for days), pick up changes made on
   // another device. Unsaved edits on this device are merged in, never dropped.

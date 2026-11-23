@@ -2,7 +2,20 @@
 
 Versions are numbered `major.minor.patch`. The version also shows at the bottom of Account & settings.
 
-## v1.5.0 - 2026-11-25 - Phone notifications (part 1: the plumbing)
+## v1.6.0 - 2026-11-23 - Scheduled reminder pushes (part 2) and import message fix
+- **Your daily reminder and the weekly review now arrive as push notifications**, even when LifeOS is closed, at about the
+  time you chose (up to ~10 minutes late). They are skipped if you have already logged your day, sent once a day, and never
+  sent late at night after an outage (3-hour window). Times follow your phone's time zone, which is kept up to date.
+- Your reminder settings are now also saved on the server (new migration `0008_reminder_prefs.sql`). The settings of the
+  device you changed last are used.
+- If push is on for a device, the app no longer shows a second, local notification at the same time.
+- A GitHub Actions schedule (`.github/workflows/reminders.yml`, every 10 minutes) calls a protected endpoint
+  (`/api/cron/reminders`) that needs a secret (`CRON_SECRET`); until it is set up, nothing is sent and nothing breaks. See `docs/PUSH-SETUP.md`.
+- **Bug fix:** importing a file that is not a LifeOS backup now shows a clear message right under the Import button
+  (before, the message appeared at the top of the settings window, out of sight).
+- Changelog dates for v1.4.0 and v1.5.0 corrected.
+
+## v1.5.0 - 2026-11-23 - Phone notifications (part 1: the plumbing)
 - **Reminders -> Phone notifications.** Turn on push notifications for this phone or browser; they can arrive even when
   LifeOS is closed. **Send a test push** shows it works. Turn them off per device at any time.
 - On iPhone this works only once LifeOS is added to the Home Screen (iOS 16.4 or newer); the screen explains this.
@@ -12,7 +25,7 @@ Versions are numbered `major.minor.patch`. The version also shows at the bottom 
 - New migration `0007_push_subscriptions.sql`. New dependency: `web-push`. New file `public/sw.js` (the service worker; it only shows notifications).
 - Not in this version: the scheduled daily/weekly reminder pushes. They come in v1.6.0.
 
-## v1.4.0 - 2026-11-24 - Safer backup and restore
+## v1.4.0 - 2026-11-23 - Safer backup and restore
 - **Import backup now shows a preview first.** After you choose a file you see what is in the app now next to what is
   in the backup (habits, logged days and their dates, to-dos, goals, journal days, program), and nothing changes until you choose.
 - Two ways to restore: **Replace everything with this backup**, or **Add what's missing (keep my data)**, which keeps

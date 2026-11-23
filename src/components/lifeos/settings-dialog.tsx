@@ -1,11 +1,8 @@
-import { useState } from "react";
 import { UserButton } from "@/lib/auth/gates";
 import { APP_VERSION } from "@/lib/version";
 import { DangerSection, ExportSection, HabitEditor, ProgramSection, ReminderSection, Section, ShareSection } from "./settings-sections";
 
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
-  const [error, setError] = useState("");
-
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-fg/40 p-0 sm:items-center sm:p-6" onClick={onClose}>
       <div
@@ -31,7 +28,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         <div className="account-chip mt-4 rounded-lg border border-line p-3">
           <UserButton />
         </div>
-        {error ? <p className="mt-2 text-sm text-bad">{error}</p> : null}
 
         <Section id="habits" title="Habits" hint="Your do's and don'ts, and which days they apply" defaultOpen>
           <HabitEditor kind="dos" title="Do's" />
@@ -54,7 +50,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         </Section>
 
         <Section id="export" title="Export & backup" hint="Excel, CSV and full backup">
-          <ExportSection onImportError={setError} onImported={onClose} />
+          <ExportSection onImported={onClose} />
         </Section>
 
         <Section id="danger" title="Danger zone" hint="Start over or delete your account">

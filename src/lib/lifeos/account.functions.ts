@@ -10,6 +10,7 @@ export const deleteMyAccount = createServerFn({ method: "POST" })
     await sql`delete from share_links where user_id = ${context.userId}`;
     await sql`delete from life_logs where user_id = ${context.userId}`;
     await sql`delete from push_subscriptions where user_id = ${context.userId}`;
+    await sql`delete from reminder_prefs where user_id = ${context.userId}`;
     // session + account rows cascade from the user row.
     await sql`delete from "user" where "id" = ${context.userId}`;
     return { ok: true as const };

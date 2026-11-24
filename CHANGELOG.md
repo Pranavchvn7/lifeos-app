@@ -2,6 +2,19 @@
 
 Versions are numbered `major.minor.patch`. The version also shows at the bottom of Account & settings.
 
+## v2.1.0 - 2026-11-23 - Amount habits and start dates
+Second release of the daily-planner update series.
+- **Amount habits.** A do can now be measured: "Read - pages", "Water - glasses", "Run - km". In Settings -> Habits, tick
+  "Track an amount", give a unit and (optionally) a daily target. On the Today screen the habit shows a number you can type,
+  - / + buttons and a progress bar. It counts as done when you reach the daily target (or anything above zero if there is no target).
+  Tapping the tick fills in the target; tapping it again clears the amount.
+- **Each habit has its own start date.** New habits count from the day you add them, so adding a habit no longer makes
+  earlier days look missed. Habits you already have are unchanged. Change it under the habit's schedule: **Counts from**.
+- Existing habits can be turned into amount habits (and back) from their schedule panel. Changing a target applies to days you log from now on.
+- Export: the Habit log sheet has Amount and Unit columns, the Habits sheet has Unit, Daily target and Counts from (added at the end).
+  A shared progress link never includes the amounts.
+- No database change; backups made before this version restore as before. Unit tests added for the rules, the store and the saved format.
+
 ## v2.0.0 - 2026-11-23 - New app shell and Settings page
 First release of the big "daily planner" update (plan: v2.0 shell, v2.1 amount habits, v2.2 habit dashboards, v2.3 timer,
 v2.4 date notes, v2.5 tasks and shopping lists, v2.6 goal tracker, v2.7 achievements, v2.8 daily planner without the 90-day timeline).

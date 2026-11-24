@@ -1,9 +1,12 @@
 import { create } from "zustand";
 import {
+  amountDone,
   createBlank,
   emptyJournal,
   emptyReflection,
   emptyWeeklyReview,
+  todayISO,
+  type HabitAmount,
   type Todo,
   type TodoPriority,
   type WeeklyReview,
@@ -27,6 +30,8 @@ type LifeStore = LifeData & {
   load: (ownerId: string, data: LifeData) => void;
   markUnready: () => void;
   toggleDo: (date: string, id: string) => void;
+  /** Log an amount for a habit that has one; done follows from the daily target. */
+  setDoValue: (date: string, id: string, value: number) => void;
   setDoNote: (date: string, id: string, notes: string) => void;
   setDontStatus: (date: string, id: string, status: DontStatus) => void;
   setDontNote: (date: string, id: string, notes: string) => void;
@@ -36,7 +41,10 @@ type LifeStore = LifeData & {
   addGoal: (horizon: GoalHorizon) => void;
   removeGoal: (id: string) => void;
   renameHabit: (kind: "dos" | "donts", id: string, label: string) => void;
-  addHabit: (kind: "dos" | "donts", label: string) => void;
+  addHabit: (kind: "dos" | "donts", label: string, options?: { amount?: HabitAmount; since?: string }) => void;
+  /** Make a do an amount habit (pages, glasses...), or pass null to make it a plain tick again. */
+  setHabitAmount: (id: string, amount: HabitAmount | null) => void;
+  setHabitSince: (kind: "dos" | "donts", id: string, since: string) => void;
   setHabitDays: (kind: "dos" | "donts", id: string, days: number[]) => void;
   addTodo: (
     input: { title: string; priority?: TodoPriority; due?: string; notes?: string; repeat?: Repeat },
@@ -74,7 +82,25 @@ export const useLife = create<LifeStore>((set) => ({
     set((state) => {
       const day = { ...(state.doChecks[date] ?? {}) };
       const prev = day[id] ?? { done: false, notes: "" };
-      day[id] = { ...prev, done: !prev.done };
+      const habit = state.dos.find((h) => h.id === id);
+      if (habit?.amount) {
+        // An amount habit: ticking fills in the daily target (or 1), un-ticking clears the amount.
+        day[id] = prev.done
+          ? { ...prev, done: false, value: 0 }
+          : { ...prev, done: true, value: Math.max(prev.value ?? 0, habit.amount.target ?? 1) };
+      } else {
+        day[id] = { ...prev, done: !prev.done };
+      }
+      return bump(state, { doChecks: { ...state.doChecks, [date]: day } });
+    }),
+  setDoValue: (date, id, value) =>
+    set((state) => {
+      const habit = state.dos.find((h) => h.id === id);
+      if (!habit || !Number.isFinite(value)) return {};
+      const clean = Math.min(1_000_000, Math.max(0, Math.round(value * 100) / 100));
+      const day = { ...(state.doChecks[date] ?? {}) };
+      const prev = day[id] ?? { done: false, notes: "" };
+      day[id] = { ...prev, value: clean, done: amountDone(habit.amount, clean) };
       return bump(state, { doChecks: { ...state.doChecks, [date]: day } });
     }),
   setDoNote: (date, id, notes) =>
@@ -153,12 +179,35 @@ export const useLife = create<LifeStore>((set) => ({
         ),
       }),
     })),
-  addHabit: (kind, label) =>
+  addHabit: (kind, label, options) =>
     set((state) => {
       if (state[kind].length >= 40) return {};
-      return bump(state, {
-        [kind]: [...state[kind], { id: crypto.randomUUID(), label: label.slice(0, 140) }],
-      });
+      const amount = kind === "dos" ? options?.amount : undefined;
+      const habit = {
+        id: crypto.randomUUID(),
+        label: label.slice(0, 140),
+        // A new habit counts from today on, so it never makes earlier days look missed.
+        since: options?.since ?? todayISO(),
+        ...(amount ? { amount: { unit: amount.unit.slice(0, 20), ...(amount.target ? { target: amount.target } : {}) } } : {}),
+      };
+      return bump(state, { [kind]: [...state[kind], habit] });
+    }),
+  setHabitAmount: (id, amount) =>
+    set((state) =>
+      bump(state, {
+        dos: state.dos.map((habit) => {
+          if (habit.id !== id) return habit;
+          const { amount: _old, ...rest } = habit;
+          const unit = amount?.unit.trim().slice(0, 20);
+          if (!amount || !unit) return rest;
+          return { ...rest, amount: amount.target && amount.target > 0 ? { unit, target: amount.target } : { unit } };
+        }),
+      }),
+    ),
+  setHabitSince: (kind, id, since) =>
+    set((state) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(since)) return {};
+      return bump(state, { [kind]: state[kind].map((habit) => (habit.id === id ? { ...habit, since } : habit)) });
     }),
   removeHabit: (kind, id) =>
     set((state) => {

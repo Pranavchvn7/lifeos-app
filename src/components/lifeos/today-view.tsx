@@ -16,6 +16,7 @@ import {
 } from "@/lib/lifeos/model";
 import { FREEZES_PER_BLOCK, checkFreeze, freezeBlockRange, freezesLeft } from "@/lib/lifeos/freeze";
 import { buildScores } from "@/lib/lifeos/score";
+import { AmountControls } from "./amount-controls";
 import { selectData } from "@/lib/lifeos/validate";
 import { useLife } from "@/lib/lifeos/store";
 import { useLifeData } from "@/lib/lifeos/use-life-data";
@@ -41,6 +42,7 @@ export function TodayView({
   const data = useLifeData();
   const { dos, donts, doChecks, dontChecks, journals, oneLines } = data;
   const toggleDo = useLife((state) => state.toggleDo);
+  const setDoValue = useLife((state) => state.setDoValue);
   const setDoNote = useLife((state) => state.setDoNote);
   const setDontStatus = useLife((state) => state.setDontStatus);
   const setDontNote = useLife((state) => state.setDontNote);
@@ -284,6 +286,14 @@ export function TodayView({
                           <span className="ml-2 text-xs font-normal text-subtle">{scheduleLabel(habit)}</span>
                         ) : null}
                       </p>
+                      {habit.amount ? (
+                        <AmountControls
+                          label={habit.label}
+                          amount={habit.amount}
+                          value={cell?.value ?? 0}
+                          onChange={(value) => setDoValue(date, habit.id, value)}
+                        />
+                      ) : null}
                       <NoteField
                         value={cell?.notes ?? ""}
                         onChange={(notes) => setDoNote(date, habit.id, notes)}

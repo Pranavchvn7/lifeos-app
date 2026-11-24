@@ -80,3 +80,10 @@ to make sure no change breaks the merge gate. An AI review does not replace a hu
 3. **Pre-deploy:** no migration, endpoint, header or dependency change. New addresses (`/todo`, `/board`, `/journal`, `/goals`, `/settings`) are pages inside the same signed-in frame: a visitor who is not signed in is redirected to the sign-in page exactly as before, and the data itself is still only available through the authenticated server functions.
 4. **Deep audit:** the navigation only links to fixed in-app addresses (no address is built from user input). The back button only uses the browser's own history or goes to Today.
 5. **Attacker's view:** opening any of the new addresses while signed out shows only a loading screen and then the sign-in page; no log data is part of the page HTML.
+
+## Recheck for v2.1.0 (amount habits and start dates)
+1. **Secrets:** nothing new.
+2. **Personal data:** three new optional fields inside the same private log (a habit's unit and target, a start date, and the logged number per day). The public share summary strips the logged numbers (and notes), so a viewer only gets what the score needs.
+3. **Pre-deploy:** no migration, endpoint, header or dependency change.
+4. **Deep audit:** the server validates every new field: unit up to 20 characters, target a finite number above 0 and at most 1,000,000, logged value a finite number from 0 to 1,000,000 (rounded to 2 decimals), start date a real `YYYY-MM-DD` string; amounts are accepted on do's only. Anything else is dropped, so a hand-edited backup or request cannot store odd values. Text is shown as text (never as HTML).
+5. **Attacker's view:** nothing here reaches another user's data; a crafted file can only change the importing user's own log, and the import preview and safety copy still apply.

@@ -93,7 +93,12 @@ export const getSharedProgress = createServerFn({ method: "GET" })
       Object.fromEntries(
         Object.entries(src).map(([date, day]) => [
           date,
-          Object.fromEntries(Object.entries(day).map(([id, cell]) => [id, { ...cell, notes: "" }])),
+          Object.fromEntries(
+            Object.entries(day).map(([id, cell]) => {
+              const { value: _amount, ...rest } = cell as T & { value?: number };
+              return [id, { ...rest, notes: "" }];
+            }),
+          ),
         ]),
       ) as Record<string, Record<string, T>>;
     const safe: LifeData = {

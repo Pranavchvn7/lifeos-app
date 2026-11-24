@@ -24,13 +24,21 @@ export const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] a
 /** Display order, Monday first. */
 export const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
 
+/** A habit you measure instead of just ticking: pages read, glasses of water, minutes... */
+export type HabitAmount = { unit: string; target?: number };
+
 export type Habit = {
   id: string;
   label: string;
   /** Weekdays the habit applies to. Missing or empty = every day. */
   days?: number[];
+  /** Do's only. Present = log a number each day (done once the daily target is reached). */
+  amount?: HabitAmount;
+  /** YYYY-MM-DD the habit starts counting. Missing = it has always counted (habits made before v2.1). */
+  since?: string;
 };
-export type DoCheck = { done: boolean; notes: string };
+/** `value` is the logged amount for habits that have one. `done` is always kept in step with it. */
+export type DoCheck = { done: boolean; notes: string; value?: number };
 export type DontCheck = { status: DontStatus | ""; notes: string };
 
 export type JournalEntry = {
@@ -264,6 +272,7 @@ export function calendarCells(program: Program): (string | null)[][] {
 
 /** Does this habit apply on `iso`? (No schedule = every day.) */
 export function isScheduled(habit: Habit, iso: string): boolean {
+  if (habit.since && iso < habit.since) return false; // not started yet
   if (!habit.days || habit.days.length === 0 || habit.days.length >= 7) return true;
   return habit.days.includes(weekdayOf(iso));
 }
@@ -366,4 +375,15 @@ export function createExample(): Pick<LifeData, "dos" | "donts" | "goals" | "tod
       },
     ],
   };
+}
+
+/** Is a logged amount enough to count as done? With a daily target: reaching it. Without one: anything above zero. */
+export function amountDone(amount: HabitAmount | undefined, value: number): boolean {
+  if (amount?.target && amount.target > 0) return value >= amount.target;
+  return value > 0;
+}
+
+/** 25 -> "25", 2.5 -> "2.5", 2.456 -> "2.46" */
+export function formatAmount(value: number): string {
+  return String(Math.round(value * 100) / 100);
 }

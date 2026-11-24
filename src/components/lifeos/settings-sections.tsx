@@ -37,6 +37,8 @@ import { APP_VERSION } from "@/lib/version";
 import { useLifeData } from "@/lib/lifeos/use-life-data";
 import { cn } from "@/lib/utils";
 import { ImportPreview } from "./import-preview";
+import { amountToDraft, draftToAmount, type AmountDraft } from "./amount-draft";
+import { AmountFields } from "./amount-fields";
 import { Field } from "./ui";
 
 const btn = "h-11 rounded-md border border-line px-3 text-sm font-medium";
@@ -79,7 +81,10 @@ export function HabitEditor({ kind, title }: { kind: "dos" | "donts"; title: str
   const addHabit = useLife((s) => s.addHabit);
   const removeHabit = useLife((s) => s.removeHabit);
   const setHabitDays = useLife((s) => s.setHabitDays);
+  const setHabitAmount = useLife((s) => s.setHabitAmount);
+  const setHabitSince = useLife((s) => s.setHabitSince);
   const [draft, setDraft] = useState("");
+  const [amountDraft, setAmountDraft] = useState<AmountDraft>({ enabled: false, unit: "", target: "" });
   const noun = kind === "dos" ? "do" : "don't";
   const slug = kind === "dos" ? "do" : "dont";
 
@@ -96,6 +101,9 @@ export function HabitEditor({ kind, title }: { kind: "dos" | "donts"; title: str
             onRename={(label) => renameHabit(kind, habit.id, label)}
             onRemove={() => removeHabit(kind, habit.id)}
             onDays={(days) => setHabitDays(kind, habit.id, days)}
+            canAmount={kind === "dos"}
+            onAmount={(amount) => setHabitAmount(habit.id, amount)}
+            onSince={(since) => setHabitSince(kind, habit.id, since)}
           />
         ))}
       </ul>
@@ -105,8 +113,10 @@ export function HabitEditor({ kind, title }: { kind: "dos" | "donts"; title: str
           event.preventDefault();
           const label = draft.trim();
           if (!label) return;
-          addHabit(kind, label);
+          const amount = kind === "dos" ? draftToAmount(amountDraft) : null;
+          addHabit(kind, label, amount ? { amount } : undefined);
           setDraft("");
+          setAmountDraft({ enabled: false, unit: "", target: "" });
         }}
       >
         <Field
@@ -120,6 +130,11 @@ export function HabitEditor({ kind, title }: { kind: "dos" | "donts"; title: str
           Add
         </button>
       </form>
+      {kind === "dos" ? (
+        <div className="mt-1">
+          <AmountFields draft={amountDraft} onChange={setAmountDraft} testId="add-do-amount" />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -130,14 +145,21 @@ function HabitRow({
   onRename,
   onRemove,
   onDays,
+  canAmount,
+  onAmount,
+  onSince,
 }: {
   habit: Habit;
   slug: string;
   onRename: (label: string) => void;
   onRemove: () => void;
   onDays: (days: number[]) => void;
+  canAmount: boolean;
+  onAmount: (amount: { unit: string; target?: number } | null) => void;
+  onSince: (since: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [amountDraft, setAmountDraft] = useState<AmountDraft>(() => amountToDraft(habit.amount));
   const selected = new Set(habit.days && habit.days.length < 7 ? habit.days : []);
 
   function toggle(day: number) {
@@ -175,6 +197,7 @@ function HabitRow({
         className="mt-1 h-9 text-xs text-muted underline-offset-2 hover:underline"
       >
         Schedule: {scheduleLabel(habit)}
+        {habit.amount ? ` · ${habit.amount.target ? `${habit.amount.target} ` : ""}${habit.amount.unit} a day` : ""}
       </button>
       {open ? (
         <div className="mt-1 space-y-2" data-testid="schedule-editor">
@@ -207,6 +230,29 @@ function HabitRow({
             </button>
           </div>
           <p className="text-xs text-subtle">Habits only count (and show up) on their scheduled days. Days off never break a streak.</p>
+          {canAmount ? (
+            <div className="border-t border-line pt-2" data-testid="amount-editor">
+              <AmountFields
+                draft={amountDraft}
+                onChange={setAmountDraft}
+                onCommit={(next) => onAmount(draftToAmount(next))}
+                testId="amount"
+              />
+            </div>
+          ) : null}
+          <label className="flex flex-wrap items-center gap-2 border-t border-line pt-2 text-sm text-muted">
+            Counts from
+            <input
+              type="date"
+              data-testid="habit-since"
+              value={habit.since ?? ""}
+              onChange={(event) => {
+                if (event.target.value) onSince(event.target.value);
+              }}
+              className="h-10 rounded-md border border-line bg-paper px-2 text-base text-fg"
+            />
+          </label>
+          <p className="text-xs text-subtle">Earlier days are not counted for this habit, so adding it never makes past days look missed.</p>
         </div>
       ) : null}
     </li>

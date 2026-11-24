@@ -43,23 +43,26 @@ export function buildExportSheets(data: LifeData, today: string): Sheet[] {
     ]);
   }
 
-  const habitLog: Cell[][] = [["Date", "Type", "Habit", "Status", "Note"]];
+  const habitLog: Cell[][] = [["Date", "Type", "Habit", "Status", "Note", "Amount", "Unit"]];
   for (const d of scores) {
     for (const habit of data.dos) {
       if (!isScheduled(habit, d.date)) continue;
       const check = data.doChecks[d.date]?.[habit.id];
-      habitLog.push([d.date, "Do", habit.label, check?.done ? "Done" : "Not done", check?.notes ?? ""]);
+      habitLog.push([
+        d.date, "Do", habit.label, check?.done ? "Done" : "Not done", check?.notes ?? "",
+        habit.amount ? (check?.value ?? 0) : "", habit.amount?.unit ?? "",
+      ]);
     }
     for (const habit of data.donts) {
       if (!isScheduled(habit, d.date)) continue;
       const check = data.dontChecks[d.date]?.[habit.id];
-      habitLog.push([d.date, "Don't", habit.label, check?.status || "Not logged", check?.notes ?? ""]);
+      habitLog.push([d.date, "Don't", habit.label, check?.status || "Not logged", check?.notes ?? "", "", ""]);
     }
   }
 
-  const habits: Cell[][] = [["Type", "Habit", "Schedule"]];
-  data.dos.forEach((h) => habits.push(["Do", h.label, scheduleLabel(h)]));
-  data.donts.forEach((h) => habits.push(["Don't", h.label, scheduleLabel(h)]));
+  const habits: Cell[][] = [["Type", "Habit", "Schedule", "Unit", "Daily target", "Counts from"]];
+  data.dos.forEach((h) => habits.push(["Do", h.label, scheduleLabel(h), h.amount?.unit ?? "", h.amount?.target ?? "", h.since ?? ""]));
+  data.donts.forEach((h) => habits.push(["Don't", h.label, scheduleLabel(h), "", "", h.since ?? ""]));
 
   const todos: Cell[][] = [["Task", "Priority", "Due", "Status", "Added", "Completed", "Notes", "Repeats"]];
   data.todos.forEach((t) =>

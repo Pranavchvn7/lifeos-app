@@ -11,6 +11,7 @@ import {
   type DontStatus,
   type DoCheck,
   type Goal,
+  type HabitAmount,
   type GoalHorizon,
   type GoalStatus,
   type Habit,
@@ -34,7 +35,7 @@ function clip(value: unknown, max: number): string {
   return value.trim().slice(0, max);
 }
 
-function parseHabits(value: unknown, name: string): Habit[] {
+function parseHabits(value: unknown, name: string, allowAmount: boolean): Habit[] {
   if (!Array.isArray(value) || value.length > 40) {
     throw new Error(`Invalid ${name} list.`);
   }
@@ -48,8 +49,17 @@ function parseHabits(value: unknown, name: string): Habit[] {
     const days = Array.isArray(item.days)
       ? [...new Set(item.days.filter((d): d is number => Number.isInteger(d) && d >= 0 && d <= 6))].sort()
       : [];
+    let amount: HabitAmount | undefined;
+    if (allowAmount && isRecord(item.amount)) {
+      const unit = clip(item.amount.unit, 20).trim();
+      const t = item.amount.target;
+      const target = typeof t === "number" && Number.isFinite(t) && t > 0 && t <= 1_000_000 ? Math.round(t * 100) / 100 : undefined;
+      if (unit) amount = target ? { unit, target } : { unit };
+    }
+    const since = typeof item.since === "string" && ISO_DATE.test(item.since) ? item.since : undefined;
     // Empty or all-seven means "every day" — store that as no schedule.
-    return days.length > 0 && days.length < 7 ? { id, label, days } : { id, label };
+    const base: Habit = days.length > 0 && days.length < 7 ? { id, label, days } : { id, label };
+    return { ...base, ...(amount ? { amount } : {}), ...(since ? { since } : {}) };
   });
 }
 
@@ -67,7 +77,9 @@ function parseDoChecks(
     for (const id of Object.keys(day)) {
       if (!ids.has(id) || !isRecord(day[id])) continue;
       const cell = day[id] as Record<string, unknown>;
-      bucket[id] = { done: cell.done === true, notes: clip(cell.notes, 500) };
+      const v = cell.value;
+      const value = typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1_000_000 ? Math.round(v * 100) / 100 : undefined;
+      bucket[id] = { done: cell.done === true, notes: clip(cell.notes, 500), ...(value !== undefined ? { value } : {}) };
     }
     if (Object.keys(bucket).length) out[date] = bucket;
   }
@@ -282,8 +294,8 @@ export function parseLifeData(input: unknown): LifeData {
   }
   if (size > MAX_JSON) throw new Error("That log is too large to save.");
   if (!isRecord(input)) throw new Error("Invalid log.");
-  const dos = parseHabits(input.dos, "do");
-  const donts = parseHabits(input.donts, "don't");
+  const dos = parseHabits(input.dos, "do", true);
+  const donts = parseHabits(input.donts, "don't", false);
   const programStart = ISO_DATE.test(clip(input.programStart, 10))
     ? clip(input.programStart, 10)
     : DEFAULT_PROGRAM_START;

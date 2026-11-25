@@ -14,6 +14,8 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppBoardRouteImport } from './routes/_app.board'
 import { Route as AppGoalsRouteImport } from './routes/_app.goals'
+import { Route as AppHabitsRouteImport } from './routes/_app.habits'
+import { Route as AppHabits_IdRouteImport } from './routes/_app.habits_.$habitId'
 import { Route as AppJournalRouteImport } from './routes/_app.journal'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppTodoRouteImport } from './routes/_app.todo'
@@ -43,6 +45,16 @@ const AppBoardRoute = AppBoardRouteImport.update({
 const AppGoalsRoute = AppGoalsRouteImport.update({
   id: '/goals',
   path: '/goals',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppHabitsRoute = AppHabitsRouteImport.update({
+  id: '/habits',
+  path: '/habits',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppHabits_IdRoute = AppHabits_IdRouteImport.update({
+  id: '/habits_/$habitId',
+  path: '/habits/$habitId',
   getParentRoute: () => AppRoute,
 } as any)
 const AppJournalRoute = AppJournalRouteImport.update({
@@ -81,6 +93,8 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/board': typeof AppBoardRoute
   '/goals': typeof AppGoalsRoute
+  '/habits': typeof AppHabitsRoute
+  '/habits/$habitId': typeof AppHabits_IdRoute
   '/journal': typeof AppJournalRoute
   '/settings': typeof AppSettingsRoute
   '/todo': typeof AppTodoRoute
@@ -92,6 +106,8 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/board': typeof AppBoardRoute
   '/goals': typeof AppGoalsRoute
+  '/habits': typeof AppHabitsRoute
+  '/habits/$habitId': typeof AppHabits_IdRoute
   '/journal': typeof AppJournalRoute
   '/settings': typeof AppSettingsRoute
   '/todo': typeof AppTodoRoute
@@ -106,6 +122,8 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_app/board': typeof AppBoardRoute
   '/_app/goals': typeof AppGoalsRoute
+  '/_app/habits': typeof AppHabitsRoute
+  '/_app/habits_/$habitId': typeof AppHabits_IdRoute
   '/_app/journal': typeof AppJournalRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/todo': typeof AppTodoRoute
@@ -121,6 +139,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/board'
     | '/goals'
+    | '/habits'
+    | '/habits/$habitId'
     | '/journal'
     | '/settings'
     | '/todo'
@@ -132,6 +152,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/board'
     | '/goals'
+    | '/habits'
+    | '/habits/$habitId'
     | '/journal'
     | '/settings'
     | '/todo'
@@ -145,6 +167,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/_app/board'
     | '/_app/goals'
+    | '/_app/habits'
+    | '/_app/habits_/$habitId'
     | '/_app/journal'
     | '/_app/settings'
     | '/_app/todo'
@@ -199,6 +223,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppGoalsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/habits': {
+      id: '/_app/habits'
+      path: '/habits'
+      fullPath: '/habits'
+      preLoaderRoute: typeof AppHabitsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/habits_/$habitId': {
+      id: '/_app/habits_/$habitId'
+      path: '/habits/$habitId'
+      fullPath: '/habits/$habitId'
+      preLoaderRoute: typeof AppHabits_IdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/journal': {
       id: '/_app/journal'
       path: '/journal'
@@ -247,6 +285,8 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppBoardRoute: typeof AppBoardRoute
   AppGoalsRoute: typeof AppGoalsRoute
+  AppHabitsRoute: typeof AppHabitsRoute
+  AppHabits_IdRoute: typeof AppHabits_IdRoute
   AppJournalRoute: typeof AppJournalRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppTodoRoute: typeof AppTodoRoute
@@ -256,6 +296,8 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppBoardRoute: AppBoardRoute,
   AppGoalsRoute: AppGoalsRoute,
+  AppHabitsRoute: AppHabitsRoute,
+  AppHabits_IdRoute: AppHabits_IdRoute,
   AppJournalRoute: AppJournalRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppTodoRoute: AppTodoRoute,

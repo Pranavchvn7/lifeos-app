@@ -5,6 +5,7 @@ import { NAV_ITEMS, navIdForPath } from "./nav-items";
 describe("navIdForPath", () => {
   it("maps each address to its section", () => {
     assert.equal(navIdForPath("/"), "today");
+    assert.equal(navIdForPath("/habits"), "habits");
     assert.equal(navIdForPath("/todo"), "todo");
     assert.equal(navIdForPath("/board"), "board");
     assert.equal(navIdForPath("/journal"), "journal");
@@ -14,6 +15,7 @@ describe("navIdForPath", () => {
   it("ignores a trailing slash and covers sub-pages", () => {
     assert.equal(navIdForPath("/settings/"), "settings");
     assert.equal(navIdForPath("/goals/abc"), "goals");
+    assert.equal(navIdForPath("/habits/abc"), "habits");
   });
   it("falls back to Today for anything unknown", () => {
     assert.equal(navIdForPath("/nope"), "today");

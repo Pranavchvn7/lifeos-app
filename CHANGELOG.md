@@ -2,6 +2,19 @@
 
 Versions are numbered `major.minor.patch`. The version also shows at the bottom of Account & settings.
 
+## v2.2.0 - 2026-11-25 - Habits tab and habit dashboards
+Third release of the daily-planner update series.
+- **Habits tab** (new, next to Today in the navigation). Each habit with its current streak and its last seven days. Tap one to open it.
+- **A dashboard for each habit:**
+  - a month calendar: tap a day to mark it (or change its amount) and add a note to it; days before the habit started or after today cannot be edited;
+  - stats: days kept (or total amount for amount habits), completion, current and best streak, and the average per day for amount habits;
+  - charts: this month, the last 12 weeks, completion by week, and the streak over the last 90 days;
+  - every note the habit has, newest first.
+- Streak rules are the same as on Today and the Board: a missed day breaks a streak; days that do not apply (not scheduled, frozen, before the start date) and today before it is logged do not.
+- The chart pieces the Board uses now live in one shared place. The Board looks and works the same.
+- No data change and no database change: backups made before this version restore as before.
+- Unit tests added for day states, streaks, stats, the weekly and monthly series and the calendar layout.
+
 ## v2.1.0 - 2026-11-23 - Amount habits and start dates
 Second release of the daily-planner update series.
 - **Amount habits.** A do can now be measured: "Read - pages", "Water - glasses", "Run - km". In Settings -> Habits, tick

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactElement, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   Area,
   Bar,
@@ -10,7 +10,6 @@ import {
   Pie,
   PieChart,
   ReferenceLine,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -41,6 +40,7 @@ import {
 } from "@/lib/lifeos/score";
 import { useLife } from "@/lib/lifeos/store";
 import { cn } from "@/lib/utils";
+import { AXIS, ChartBox, TOOLTIP_STYLE } from "./chart-kit";
 import { BadgesPanel } from "./badges-panel";
 import { Area as TextArea, Field, Panel } from "./ui";
 
@@ -54,15 +54,6 @@ const HEAT = [
   "bg-heat-4 text-heat-ink",
   "bg-heat-5 text-heat-ink",
 ];
-
-const AXIS = { fill: "var(--color-muted)", fontSize: 11 } as const;
-const TOOLTIP_STYLE = {
-  background: "var(--color-surface)",
-  border: "1px solid var(--color-line)",
-  borderRadius: 12,
-  color: "var(--color-fg)",
-  fontSize: 13,
-} as const;
 
 const pct = (ratio: number) => Math.round(ratio * 100);
 const avg = (values: number[]) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0);
@@ -599,20 +590,6 @@ export function BoardView({
       ) : null}
 
       <BadgesPanel data={data} />
-    </div>
-  );
-}
-
-function ChartBox({ className, children }: { className?: string; children: ReactNode }) {
-  const [on, setOn] = useState(false);
-  useEffect(() => setOn(true), []);
-  return (
-    <div className={cn("w-full min-w-0", className)}>
-      {on ? (
-        <ResponsiveContainer width="100%" height="100%">
-          {children as ReactElement}
-        </ResponsiveContainer>
-      ) : null}
     </div>
   );
 }

@@ -18,8 +18,10 @@ import {
   type JournalEntry,
   type LifeData,
   type MonthReflection,
+  type RunningTimer,
 } from "./model";
 import { TODO_REPEATS, type Repeat } from "./recurrence";
+import { MAX_TIMER_SECONDS } from "./timer";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MONTH_KEY = /^\d{4}-\d{2}$/;
@@ -210,6 +212,10 @@ function parseTodos(value: unknown): Todo[] {
     const done = item.done === true;
     const repeat = TODO_REPEATS.includes(item.repeat as Repeat) ? (item.repeat as Repeat) : undefined;
     const spawned = clip(item.spawned, 64);
+    const tracked =
+      typeof item.trackedSeconds === "number" && Number.isFinite(item.trackedSeconds) && item.trackedSeconds > 0
+        ? Math.min(10_000_000, Math.round(item.trackedSeconds))
+        : 0;
     todos.push({
       id,
       title,
@@ -221,9 +227,29 @@ function parseTodos(value: unknown): Todo[] {
       doneOn: done ? date(item.doneOn) : "",
       ...(repeat ? { repeat } : {}),
       ...(done && repeat && spawned ? { spawned } : {}),
+      ...(tracked ? { trackedSeconds: tracked } : {}),
     });
   }
   return todos;
+}
+
+/** The running timer (v2.3). A damaged or stale one is dropped, so it can never block saving the whole log. */
+function parseTimer(value: unknown, habitIds: Set<string>, todoIds: Set<string>): RunningTimer | null {
+  if (!isRecord(value)) return null;
+  const id = clip(value.id, 64);
+  const kind = value.kind === "habit" || value.kind === "task" ? value.kind : null;
+  if (!kind || !id) return null;
+  if (kind === "habit" && !habitIds.has(id)) return null;
+  if (kind === "task" && !todoIds.has(id)) return null;
+  const date = clip(value.date, 10);
+  if (kind === "habit" && !ISO_DATE.test(date)) return null;
+  const bankedSeconds =
+    typeof value.bankedSeconds === "number" && Number.isFinite(value.bankedSeconds)
+      ? Math.min(MAX_TIMER_SECONDS, Math.max(0, value.bankedSeconds))
+      : 0;
+  const startedAt =
+    typeof value.startedAt === "string" && Number.isFinite(Date.parse(value.startedAt)) ? value.startedAt : null;
+  return { kind, id, date: kind === "habit" ? date : "", bankedSeconds, startedAt };
 }
 
 function parseFreezeDays(value: unknown): Record<string, boolean> {
@@ -303,16 +329,18 @@ export function parseLifeData(input: unknown): LifeData {
     typeof input.programDays === "number" && input.programDays >= 7 && input.programDays <= 366
       ? Math.round(input.programDays)
       : DEFAULT_PROGRAM_DAYS;
+  const todos = parseTodos(input.todos);
   return {
     dos,
     donts,
+    timer: parseTimer(input.timer, new Set(dos.map((habit) => habit.id)), new Set(todos.map((todo) => todo.id))),
     doChecks: parseDoChecks(input.doChecks, new Set(dos.map((habit) => habit.id))),
     dontChecks: parseDontChecks(input.dontChecks, new Set(donts.map((habit) => habit.id))),
     journals: parseJournals(input.journals),
     oneLines: parseLines(input.oneLines),
     goals: parseGoals(input.goals),
     reflections: parseReflections(input.reflections),
-    todos: parseTodos(input.todos),
+    todos,
     freezeDays: parseFreezeDays(input.freezeDays),
     weeklyReviews: parseWeeklyReviews(input.weeklyReviews),
     programStart,
@@ -337,5 +365,6 @@ export function selectData(state: LifeData): LifeData {
     programDays: state.programDays,
     pastPrograms: state.pastPrograms,
     freezeDays: state.freezeDays,
+    timer: state.timer,
   };
 }

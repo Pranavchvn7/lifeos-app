@@ -17,6 +17,8 @@ import {
 import { FREEZES_PER_BLOCK, checkFreeze, freezeBlockRange, freezesLeft } from "@/lib/lifeos/freeze";
 import { buildScores } from "@/lib/lifeos/score";
 import { AmountControls } from "./amount-controls";
+import { isTimedHabit } from "@/lib/lifeos/timer";
+import { TimerButton } from "./timer-controls";
 import { selectData } from "@/lib/lifeos/validate";
 import { useLife } from "@/lib/lifeos/store";
 import { useLifeData } from "@/lib/lifeos/use-life-data";
@@ -293,6 +295,11 @@ export function TodayView({
                           value={cell?.value ?? 0}
                           onChange={(value) => setDoValue(date, habit.id, value)}
                         />
+                      ) : null}
+                      {habit.amount && isTimedHabit(habit) ? (
+                        <div className="mt-2">
+                          <TimerButton kind="habit" id={habit.id} date={date} label={habit.label} />
+                        </div>
                       ) : null}
                       <NoteField
                         value={cell?.notes ?? ""}

@@ -118,6 +118,8 @@ export const getSharedProgress = createServerFn({ method: "GET" })
       programDays: full.programDays,
       pastPrograms: full.pastPrograms,
       freezeDays: full.freezeDays,
+      // A shared view never shows a running timer.
+      timer: null,
     };
     return { name: link.display_name || "A LifeOS user", data: safe };
   });

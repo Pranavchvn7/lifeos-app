@@ -22,6 +22,12 @@ import { snapshotProgram } from "./score";
 import { selectData } from "./validate";
 import { toggleTodoList, type Repeat } from "./recurrence";
 import { checkFreeze } from "./freeze";
+import {
+  commitTimer,
+  newTimer,
+  pauseTimer as pauseRunning,
+  resumeTimer as resumeRunning,
+} from "./timer";
 
 type LifeStore = LifeData & {
   ownerId: string | null;
@@ -35,6 +41,12 @@ type LifeStore = LifeData & {
   setDoNote: (date: string, id: string, notes: string) => void;
   setDontStatus: (date: string, id: string, status: DontStatus) => void;
   setDontNote: (date: string, id: string, notes: string) => void;
+  /** Start the timer on a timed habit (for that day) or a task. A timer already running is saved first. */
+  startTimer: (kind: "habit" | "task", id: string, date: string, nowMs: number) => void;
+  pauseTimer: (nowMs: number) => void;
+  resumeTimer: (nowMs: number) => void;
+  /** Stop the timer and save its time to the habit's day or the task. */
+  stopTimer: (nowMs: number) => void;
   setOneLine: (date: string, line: string) => void;
   patchJournal: (date: string, patch: Partial<JournalEntry>) => void;
   patchGoal: (id: string, patch: Partial<Goal>) => void;
@@ -78,6 +90,21 @@ export const useLife = create<LifeStore>((set) => ({
   revision: 0,
   load: (ownerId, data) => set({ ...data, ownerId, ready: true, revision: 0 }),
   markUnready: () => set({ ready: false, ownerId: null }),
+  startTimer: (kind, id, date, nowMs) =>
+    set((state) => {
+      const current = state.timer;
+      const sameTarget = current && current.kind === kind && current.id === id && current.date === (kind === "habit" ? date : "");
+      if (current && sameTarget) {
+        const next = resumeRunning(current, nowMs);
+        return next === current ? {} : bump(state, { timer: next });
+      }
+      return bump(state, { ...commitTimer(state, nowMs), timer: newTimer(kind, id, date, nowMs) });
+    }),
+  pauseTimer: (nowMs) =>
+    set((state) => (state.timer?.startedAt ? bump(state, { timer: pauseRunning(state.timer, nowMs) }) : {})),
+  resumeTimer: (nowMs) =>
+    set((state) => (state.timer && !state.timer.startedAt ? bump(state, { timer: resumeRunning(state.timer, nowMs) }) : {})),
+  stopTimer: (nowMs) => set((state) => (state.timer ? bump(state, commitTimer(state, nowMs)) : {})),
   toggleDo: (date, id) =>
     set((state) => {
       const day = { ...(state.doChecks[date] ?? {}) };

@@ -85,6 +85,24 @@ export type Todo = {
   repeat?: Repeat;
   /** On a completed repeating task: id of the occurrence it created (so reopening it can undo that). */
   spawned?: string;
+  /** Seconds tracked with the timer on this task (v2.3). Missing = none. */
+  trackedSeconds?: number;
+};
+
+/**
+ * A timer that is running or paused (v2.3). Only one runs at a time. It lives in the synced log, so it keeps
+ * running across closes and shows on every device. Elapsed time = bankedSeconds + (now - startedAt) while running.
+ */
+export type RunningTimer = {
+  kind: "habit" | "task";
+  /** Habit id (kind "habit") or to-do id (kind "task"). */
+  id: string;
+  /** Day the minutes count toward (habits only); "" for tasks. */
+  date: string;
+  /** Seconds from earlier runs of this timer, before the last pause. */
+  bankedSeconds: number;
+  /** ISO time the current run started, or null while paused. */
+  startedAt: string | null;
 };
 
 /** Weekly review, keyed in `LifeData.weeklyReviews` by the Monday (YYYY-MM-DD) of that Mon–Sun week. */
@@ -123,6 +141,8 @@ export type LifeData = {
   pastPrograms: PastProgram[];
   /** Days protected by a streak freeze (date -> true). A frozen day behaves like a rest day. */
   freezeDays: Record<string, boolean>;
+  /** The running or paused timer, or null (v2.3). */
+  timer: RunningTimer | null;
 };
 
 // ── dates ───────────────────────────────────────────────────────────────────
@@ -320,6 +340,7 @@ export function createBlank(start: string = todayISO()): LifeData {
     programDays: DEFAULT_PROGRAM_DAYS,
     pastPrograms: [],
     freezeDays: {},
+    timer: null,
   };
 }
 

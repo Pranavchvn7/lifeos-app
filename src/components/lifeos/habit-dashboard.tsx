@@ -28,10 +28,12 @@ import {
   type HabitRef,
 } from "@/lib/lifeos/habit-view";
 import { useLife } from "@/lib/lifeos/store";
+import { isTimedHabit } from "@/lib/lifeos/timer";
 import { cn } from "@/lib/utils";
 import { AmountControls } from "./amount-controls";
 import { AXIS, ChartBox, TOOLTIP_STYLE } from "./chart-kit";
 import { DAY_STATE_LABEL, dayTone } from "./habits-view";
+import { TimerButton } from "./timer-controls";
 import { Area as TextArea, Panel } from "./ui";
 
 const WEEKDAY_HEADINGS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -195,6 +197,10 @@ function Dashboard({ data, found, today }: { data: LifeData; found: HabitRef; to
           </p>
         ) : (
           <div className="mt-4 space-y-4">
+            {kind === "do" && habit.amount && isTimedHabit(habit) ? (
+              <TimerButton kind="habit" id={habit.id} date={selected} label={habit.label} />
+            ) : null}
+
             {kind === "do" && habit.amount ? (
               <AmountControls
                 label={habit.label}

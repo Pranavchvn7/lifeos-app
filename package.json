@@ -94,5 +94,5 @@
     "tsx": "^4.23.15",
     "typescript-eslint": "^8.56.1"
   },
-  "version": "2.2.0"
+  "version": "2.3.0"
 }

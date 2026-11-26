@@ -3,7 +3,9 @@ import { Check, Plus, Repeat as RepeatIcon, Trash2 } from "lucide-react";
 import { TODO_PRIORITIES, formatPretty, todayISO, type Todo, type TodoPriority } from "@/lib/lifeos/model";
 import { REPEAT_LABEL, TODO_REPEATS, type Repeat } from "@/lib/lifeos/recurrence";
 import { useLife } from "@/lib/lifeos/store";
+import { formatClock } from "@/lib/lifeos/timer";
 import { cn } from "@/lib/utils";
+import { TimerButton } from "./timer-controls";
 import { Field, Panel } from "./ui";
 
 const PRIORITY_LABEL: Record<TodoPriority, string> = { high: "High", medium: "Medium", low: "Low" };
@@ -144,6 +146,16 @@ export function TodoRow({ todo, today }: { todo: Todo; today: string }) {
           >
             {todo.title}
           </button>
+          {!todo.done || todo.trackedSeconds ? (
+            <div className="mt-1 flex flex-wrap items-center gap-3">
+              {!todo.done ? <TimerButton kind="task" id={todo.id} label={todo.title} /> : null}
+              {todo.trackedSeconds ? (
+                <span className="text-xs tabular-nums text-muted" data-testid="todo-tracked">
+                  Tracked {formatClock(todo.trackedSeconds)}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
             <span className={cn("rounded-full px-2 py-0.5 font-medium", PRIORITY_CLASS[todo.priority])}>
               {PRIORITY_LABEL[todo.priority]}

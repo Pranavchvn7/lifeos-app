@@ -1,0 +1,772 @@
+diff -ruN a/lifeos-app-main/CHANGELOG.md b/lifeos-app-main/CHANGELOG.md
+--- a/lifeos-app-main/CHANGELOG.md	2026-11-26 10:02:19.813295722 +0530
++++ b/lifeos-app-main/CHANGELOG.md	2026-11-26 10:02:19.818036118 +0530
+@@ -2,6 +2,16 @@
+ 
+ Versions are numbered `major.minor.patch`. The version also shows at the bottom of Account & settings.
+ 
++## v2.3.0 - 2026-11-26 - Timer for timed habits and tasks
++Fourth release of the daily-planner update series.
++- **Timer** with start, pause, resume and stop. It keeps running if you close the app, and it shows as a bar above every page until you stop it.
++- **Timed habits**: a habit whose unit is minutes (for example "Study: min") can be timed. Stopping the timer adds the minutes to that day's total, the same as typing them in, so the Today screen, the habit's dashboard and the streak all pick them up.
++- **Tasks**: any open to-do can be timed. The tracked time shows on the task.
++- **Sync**: the timer is part of your saved log, so it appears on your other devices. Only one timer runs at a time; starting another one saves the running one first.
++- **Limits**: one run counts at most 12 hours, so a timer left running by mistake cannot add days. A run under one second is discarded.
++- Data: the log gains a timer field and a tracked-time field on tasks. Logs saved before this version load as before, and backups made before it restore as before.
++- Unit tests added for the timer, its saving rules, the log checks and merging the timer across devices.
++
+ ## v2.2.0 - 2026-11-25 - Habits tab and habit dashboards
+ Third release of the daily-planner update series.
+ - **Habits tab** (new, next to Today in the navigation). Each habit with its current streak and its last seven days. Tap one to open it.
+diff -ruN a/lifeos-app-main/package.json b/lifeos-app-main/package.json
+--- a/lifeos-app-main/package.json	2026-11-26 10:02:19.813283589 +0530
++++ b/lifeos-app-main/package.json	2026-11-26 10:02:19.818051020 +0530
+@@ -94,5 +94,5 @@
+     "tsx": "^4.23.15",
+     "typescript-eslint": "^8.56.1"
+   },
+-  "version": "2.2.0"
++  "version": "2.3.0"
+ }
+diff -ruN a/lifeos-app-main/src/components/lifeos/habit-dashboard.tsx b/lifeos-app-main/src/components/lifeos/habit-dashboard.tsx
+--- a/lifeos-app-main/src/components/lifeos/habit-dashboard.tsx	2026-11-26 10:02:19.811785281 +0530
++++ b/lifeos-app-main/src/components/lifeos/habit-dashboard.tsx	2026-11-26 10:02:19.816216827 +0530
+@@ -28,10 +28,12 @@
+   type HabitRef,
+ } from "@/lib/lifeos/habit-view";
+ import { useLife } from "@/lib/lifeos/store";
++import { isTimedHabit } from "@/lib/lifeos/timer";
+ import { cn } from "@/lib/utils";
+ import { AmountControls } from "./amount-controls";
+ import { AXIS, ChartBox, TOOLTIP_STYLE } from "./chart-kit";
+ import { DAY_STATE_LABEL, dayTone } from "./habits-view";
++import { TimerButton } from "./timer-controls";
+ import { Area as TextArea, Panel } from "./ui";
+ 
+ const WEEKDAY_HEADINGS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+@@ -195,6 +197,10 @@
+           </p>
+         ) : (
+           <div className="mt-4 space-y-4">
++            {kind === "do" && habit.amount && isTimedHabit(habit) ? (
++              <TimerButton kind="habit" id={habit.id} date={selected} label={habit.label} />
++            ) : null}
++
+             {kind === "do" && habit.amount ? (
+               <AmountControls
+                 label={habit.label}
+diff -ruN a/lifeos-app-main/src/components/lifeos/life-app.tsx b/lifeos-app-main/src/components/lifeos/life-app.tsx
+--- a/lifeos-app-main/src/components/lifeos/life-app.tsx	2026-11-26 10:02:19.811594731 +0530
++++ b/lifeos-app-main/src/components/lifeos/life-app.tsx	2026-11-26 10:02:19.816178985 +0530
+@@ -22,6 +22,7 @@
+ import { BottomNav } from "./bottom-nav";
+ import { NAV_ITEMS, navIdForPath, type NavItem } from "./nav-items";
+ import { ShellContext } from "./shell-context";
++import { TimerBar } from "./timer-controls";
+ 
+ export function LifeApp({ userId }: { userId: string }) {
+   const ready = useLife((state) => state.ready && state.ownerId === userId);
+@@ -253,6 +254,7 @@
+ 
+           <div className="min-w-0">
+             <AppHeader theme={theme} onToggleTheme={toggleTheme} onSettings={goSettings} saveNote={saveNoteText(saveState)} />
++            <TimerBar />
+             <main className="px-4 py-5 pb-28 md:px-8 md:py-8 md:pb-10">
+               <Outlet />
+             </main>
+diff -ruN a/lifeos-app-main/src/components/lifeos/timer-controls.tsx b/lifeos-app-main/src/components/lifeos/timer-controls.tsx
+--- a/lifeos-app-main/src/components/lifeos/timer-controls.tsx	1970-01-01 05:30:00.000000000 +0530
++++ b/lifeos-app-main/src/components/lifeos/timer-controls.tsx	2026-11-26 10:02:19.816159254 +0530
+@@ -0,0 +1,122 @@
++import { useEffect, useState } from "react";
++import { Pause, Play, Square } from "lucide-react";
++import { useLife } from "@/lib/lifeos/store";
++import { formatClock, timerSeconds } from "@/lib/lifeos/timer";
++
++/** The clock: re-reads the time once a second, but only while a timer is actually running. */
++function useNowMs(running: boolean): number {
++  const [now, setNow] = useState(() => Date.now());
++  useEffect(() => {
++    if (!running) return;
++    setNow(Date.now());
++    const handle = window.setInterval(() => setNow(Date.now()), 1000);
++    return () => window.clearInterval(handle);
++  }, [running]);
++  return now;
++}
++
++const ghost = "inline-flex h-11 items-center gap-2 rounded-md border border-line bg-paper px-3 text-sm font-medium text-fg";
++
++/**
++ * Start, pause, resume and stop for one habit (on one day) or one task. Shows the clock while this is the timer
++ * that is running or paused; otherwise it is a Start button. Only one timer runs at a time, across all screens.
++ */
++export function TimerButton({ kind, id, date = "", label }: { kind: "habit" | "task"; id: string; date?: string; label: string }) {
++  const timer = useLife((s) => s.timer);
++  const startTimer = useLife((s) => s.startTimer);
++  const pauseTimer = useLife((s) => s.pauseTimer);
++  const resumeTimer = useLife((s) => s.resumeTimer);
++  const stopTimer = useLife((s) => s.stopTimer);
++
++  const mine = !!timer && timer.kind === kind && timer.id === id && (kind === "task" || timer.date === date);
++  const now = useNowMs(!!mine && !!timer?.startedAt);
++
++  if (!mine || !timer) {
++    return (
++      <button
++        type="button"
++        data-testid="timer-start"
++        aria-label={`Start timer for ${label}`}
++        onClick={() => startTimer(kind, id, date, Date.now())}
++        className={ghost}
++      >
++        <Play className="size-4" aria-hidden />
++        Start timer
++      </button>
++    );
++  }
++
++  const running = !!timer.startedAt;
++  return (
++    <div className="flex flex-wrap items-center gap-2" data-testid="timer-controls">
++      <span className="min-w-[4.5rem] tabular-nums text-sm font-medium" data-testid="timer-clock">
++        {formatClock(timerSeconds(timer, now))}
++      </span>
++      {running ? (
++        <button type="button" data-testid="timer-pause" aria-label={`Pause timer for ${label}`} onClick={() => pauseTimer(Date.now())} className={ghost}>
++          <Pause className="size-4" aria-hidden />
++          Pause
++        </button>
++      ) : (
++        <button type="button" data-testid="timer-resume" aria-label={`Resume timer for ${label}`} onClick={() => resumeTimer(Date.now())} className={ghost}>
++          <Play className="size-4" aria-hidden />
++          Resume
++        </button>
++      )}
++      <button type="button" data-testid="timer-stop" aria-label={`Stop timer for ${label} and save the time`} onClick={() => stopTimer(Date.now())} className={ghost}>
++        <Square className="size-4" aria-hidden />
++        Stop
++      </button>
++    </div>
++  );
++}
++
++/** Shown above every page while a timer runs or is paused, so you can always see it and stop it. */
++export function TimerBar() {
++  const timer = useLife((s) => s.timer);
++  const dos = useLife((s) => s.dos);
++  const todos = useLife((s) => s.todos);
++  const pauseTimer = useLife((s) => s.pauseTimer);
++  const resumeTimer = useLife((s) => s.resumeTimer);
++  const stopTimer = useLife((s) => s.stopTimer);
++
++  const running = !!timer?.startedAt;
++  const now = useNowMs(running);
++  if (!timer) return null;
++
++  const name =
++    timer.kind === "habit" ? dos.find((habit) => habit.id === timer.id)?.label : todos.find((todo) => todo.id === timer.id)?.title;
++  const label = name ?? "Timer";
++
++  return (
++    <section
++      aria-label="Running timer"
++      data-testid="timer-bar"
++      className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b border-line bg-surface/95 px-4 py-2 backdrop-blur"
++    >
++      <span className={running ? "size-2.5 rounded-full bg-accent" : "size-2.5 rounded-full bg-subtle"} aria-hidden />
++      <p className="min-w-0 flex-1 truncate text-sm">
++        {label}
++        <span className="text-subtle">{running ? "" : " (paused)"}</span>
++      </p>
++      <span className="tabular-nums text-sm font-semibold" data-testid="timer-bar-clock">
++        {formatClock(timerSeconds(timer, now))}
++      </span>
++      {running ? (
++        <button type="button" data-testid="timer-bar-pause" aria-label={`Pause ${label}`} onClick={() => pauseTimer(Date.now())} className={ghost}>
++          <Pause className="size-4" aria-hidden />
++          Pause
++        </button>
++      ) : (
++        <button type="button" data-testid="timer-bar-resume" aria-label={`Resume ${label}`} onClick={() => resumeTimer(Date.now())} className={ghost}>
++          <Play className="size-4" aria-hidden />
++          Resume
++        </button>
++      )}
++      <button type="button" data-testid="timer-bar-stop" aria-label={`Stop ${label} and save the time`} onClick={() => stopTimer(Date.now())} className={ghost}>
++        <Square className="size-4" aria-hidden />
++        Stop
++      </button>
++    </section>
++  );
++}
+diff -ruN a/lifeos-app-main/src/components/lifeos/today-view.tsx b/lifeos-app-main/src/components/lifeos/today-view.tsx
+--- a/lifeos-app-main/src/components/lifeos/today-view.tsx	2026-11-26 10:02:19.811654929 +0530
++++ b/lifeos-app-main/src/components/lifeos/today-view.tsx	2026-11-26 10:02:19.816196231 +0530
+@@ -17,6 +17,8 @@
+ import { FREEZES_PER_BLOCK, checkFreeze, freezeBlockRange, freezesLeft } from "@/lib/lifeos/freeze";
+ import { buildScores } from "@/lib/lifeos/score";
+ import { AmountControls } from "./amount-controls";
++import { isTimedHabit } from "@/lib/lifeos/timer";
++import { TimerButton } from "./timer-controls";
+ import { selectData } from "@/lib/lifeos/validate";
+ import { useLife } from "@/lib/lifeos/store";
+ import { useLifeData } from "@/lib/lifeos/use-life-data";
+@@ -294,6 +296,11 @@
+                           onChange={(value) => setDoValue(date, habit.id, value)}
+                         />
+                       ) : null}
++                      {habit.amount && isTimedHabit(habit) ? (
++                        <div className="mt-2">
++                          <TimerButton kind="habit" id={habit.id} date={date} label={habit.label} />
++                        </div>
++                      ) : null}
+                       <NoteField
+                         value={cell?.notes ?? ""}
+                         onChange={(notes) => setDoNote(date, habit.id, notes)}
+diff -ruN a/lifeos-app-main/src/components/lifeos/todo-view.tsx b/lifeos-app-main/src/components/lifeos/todo-view.tsx
+--- a/lifeos-app-main/src/components/lifeos/todo-view.tsx	2026-11-26 10:02:19.811674713 +0530
++++ b/lifeos-app-main/src/components/lifeos/todo-view.tsx	2026-11-26 10:02:19.816047538 +0530
+@@ -3,7 +3,9 @@
+ import { TODO_PRIORITIES, formatPretty, todayISO, type Todo, type TodoPriority } from "@/lib/lifeos/model";
+ import { REPEAT_LABEL, TODO_REPEATS, type Repeat } from "@/lib/lifeos/recurrence";
+ import { useLife } from "@/lib/lifeos/store";
++import { formatClock } from "@/lib/lifeos/timer";
+ import { cn } from "@/lib/utils";
++import { TimerButton } from "./timer-controls";
+ import { Field, Panel } from "./ui";
+ 
+ const PRIORITY_LABEL: Record<TodoPriority, string> = { high: "High", medium: "Medium", low: "Low" };
+@@ -144,6 +146,16 @@
+           >
+             {todo.title}
+           </button>
++          {!todo.done || todo.trackedSeconds ? (
++            <div className="mt-1 flex flex-wrap items-center gap-3">
++              {!todo.done ? <TimerButton kind="task" id={todo.id} label={todo.title} /> : null}
++              {todo.trackedSeconds ? (
++                <span className="text-xs tabular-nums text-muted" data-testid="todo-tracked">
++                  Tracked {formatClock(todo.trackedSeconds)}
++                </span>
++              ) : null}
++            </div>
++          ) : null}
+           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+             <span className={cn("rounded-full px-2 py-0.5 font-medium", PRIORITY_CLASS[todo.priority])}>
+               {PRIORITY_LABEL[todo.priority]}
+diff -ruN a/lifeos-app-main/src/lib/lifeos/merge-timer.test.ts b/lifeos-app-main/src/lib/lifeos/merge-timer.test.ts
+--- a/lifeos-app-main/src/lib/lifeos/merge-timer.test.ts	1970-01-01 05:30:00.000000000 +0530
++++ b/lifeos-app-main/src/lib/lifeos/merge-timer.test.ts	2026-11-26 10:02:19.817717518 +0530
+@@ -0,0 +1,34 @@
++import { describe, it } from "node:test";
++import assert from "node:assert/strict";
++import { createBlank, type LifeData, type RunningTimer } from "./model";
++import { mergeLifeData } from "./merge";
++
++const running: RunningTimer = { kind: "habit", id: "study", date: "2026-11-26", bankedSeconds: 0, startedAt: "2026-11-26T10:00:00.000Z" };
++const paused: RunningTimer = { ...running, bankedSeconds: 600, startedAt: null };
++
++function withTimer(timer: RunningTimer | null): LifeData {
++  return { ...createBlank("2026-11-01"), timer };
++}
++
++describe("timer across two devices", () => {
++  it("a timer started on one device appears on the other", () => {
++    const merged = mergeLifeData(withTimer(null), withTimer(null), withTimer(running));
++    assert.deepEqual(merged.timer, running);
++  });
++
++  it("a timer stopped on this device stays stopped, even if the other device did not change it", () => {
++    const merged = mergeLifeData(withTimer(running), withTimer(null), withTimer(running));
++    assert.equal(merged.timer, null);
++  });
++
++  it("the other device stopping it wins when this device did not touch the timer", () => {
++    const merged = mergeLifeData(withTimer(running), withTimer(running), withTimer(null));
++    assert.equal(merged.timer, null);
++  });
++
++  it("paused on one device, still running on the other: this device's pause is kept", () => {
++    const merged = mergeLifeData(withTimer(running), withTimer(paused), withTimer(running));
++    assert.equal(merged.timer?.startedAt, null);
++    assert.equal(merged.timer?.bankedSeconds, 600);
++  });
++});
+diff -ruN a/lifeos-app-main/src/lib/lifeos/merge.test.ts b/lifeos-app-main/src/lib/lifeos/merge.test.ts
+--- a/lifeos-app-main/src/lib/lifeos/merge.test.ts	2026-11-26 10:02:19.812310049 +0530
++++ b/lifeos-app-main/src/lib/lifeos/merge.test.ts	2026-11-26 10:02:19.817592569 +0530
+@@ -22,6 +22,7 @@
+     programDays: 90,
+     pastPrograms: [],
+     freezeDays: {},
++    timer: null,
+   };
+ }
+ const todo = (id: string, title: string) => ({
+diff -ruN a/lifeos-app-main/src/lib/lifeos/model.ts b/lifeos-app-main/src/lib/lifeos/model.ts
+--- a/lifeos-app-main/src/lib/lifeos/model.ts	2026-11-26 10:02:19.812341509 +0530
++++ b/lifeos-app-main/src/lib/lifeos/model.ts	2026-11-26 10:02:19.817669366 +0530
+@@ -85,6 +85,24 @@
+   repeat?: Repeat;
+   /** On a completed repeating task: id of the occurrence it created (so reopening it can undo that). */
+   spawned?: string;
++  /** Seconds tracked with the timer on this task (v2.3). Missing = none. */
++  trackedSeconds?: number;
++};
++
++/**
++ * A timer that is running or paused (v2.3). Only one runs at a time. It lives in the synced log, so it keeps
++ * running across closes and shows on every device. Elapsed time = bankedSeconds + (now - startedAt) while running.
++ */
++export type RunningTimer = {
++  kind: "habit" | "task";
++  /** Habit id (kind "habit") or to-do id (kind "task"). */
++  id: string;
++  /** Day the minutes count toward (habits only); "" for tasks. */
++  date: string;
++  /** Seconds from earlier runs of this timer, before the last pause. */
++  bankedSeconds: number;
++  /** ISO time the current run started, or null while paused. */
++  startedAt: string | null;
+ };
+ 
+ /** Weekly review, keyed in `LifeData.weeklyReviews` by the Monday (YYYY-MM-DD) of that Mon–Sun week. */
+@@ -123,6 +141,8 @@
+   pastPrograms: PastProgram[];
+   /** Days protected by a streak freeze (date -> true). A frozen day behaves like a rest day. */
+   freezeDays: Record<string, boolean>;
++  /** The running or paused timer, or null (v2.3). */
++  timer: RunningTimer | null;
+ };
+ 
+ // ── dates ───────────────────────────────────────────────────────────────────
+@@ -320,6 +340,7 @@
+     programDays: DEFAULT_PROGRAM_DAYS,
+     pastPrograms: [],
+     freezeDays: {},
++    timer: null,
+   };
+ }
+ 
+diff -ruN a/lifeos-app-main/src/lib/lifeos/share.functions.ts b/lifeos-app-main/src/lib/lifeos/share.functions.ts
+--- a/lifeos-app-main/src/lib/lifeos/share.functions.ts	2026-11-26 10:02:19.812588389 +0530
++++ b/lifeos-app-main/src/lib/lifeos/share.functions.ts	2026-11-26 10:02:19.817658414 +0530
+@@ -118,6 +118,8 @@
+       programDays: full.programDays,
+       pastPrograms: full.pastPrograms,
+       freezeDays: full.freezeDays,
++      // A shared view never shows a running timer.
++      timer: null,
+     };
+     return { name: link.display_name || "A LifeOS user", data: safe };
+   });
+diff -ruN a/lifeos-app-main/src/lib/lifeos/store.ts b/lifeos-app-main/src/lib/lifeos/store.ts
+--- a/lifeos-app-main/src/lib/lifeos/store.ts	2026-11-26 10:02:19.812604487 +0530
++++ b/lifeos-app-main/src/lib/lifeos/store.ts	2026-11-26 10:02:19.817417231 +0530
+@@ -22,6 +22,12 @@
+ import { selectData } from "./validate";
+ import { toggleTodoList, type Repeat } from "./recurrence";
+ import { checkFreeze } from "./freeze";
++import {
++  commitTimer,
++  newTimer,
++  pauseTimer as pauseRunning,
++  resumeTimer as resumeRunning,
++} from "./timer";
+ 
+ type LifeStore = LifeData & {
+   ownerId: string | null;
+@@ -35,6 +41,12 @@
+   setDoNote: (date: string, id: string, notes: string) => void;
+   setDontStatus: (date: string, id: string, status: DontStatus) => void;
+   setDontNote: (date: string, id: string, notes: string) => void;
++  /** Start the timer on a timed habit (for that day) or a task. A timer already running is saved first. */
++  startTimer: (kind: "habit" | "task", id: string, date: string, nowMs: number) => void;
++  pauseTimer: (nowMs: number) => void;
++  resumeTimer: (nowMs: number) => void;
++  /** Stop the timer and save its time to the habit's day or the task. */
++  stopTimer: (nowMs: number) => void;
+   setOneLine: (date: string, line: string) => void;
+   patchJournal: (date: string, patch: Partial<JournalEntry>) => void;
+   patchGoal: (id: string, patch: Partial<Goal>) => void;
+@@ -78,6 +90,21 @@
+   revision: 0,
+   load: (ownerId, data) => set({ ...data, ownerId, ready: true, revision: 0 }),
+   markUnready: () => set({ ready: false, ownerId: null }),
++  startTimer: (kind, id, date, nowMs) =>
++    set((state) => {
++      const current = state.timer;
++      const sameTarget = current && current.kind === kind && current.id === id && current.date === (kind === "habit" ? date : "");
++      if (current && sameTarget) {
++        const next = resumeRunning(current, nowMs);
++        return next === current ? {} : bump(state, { timer: next });
++      }
++      return bump(state, { ...commitTimer(state, nowMs), timer: newTimer(kind, id, date, nowMs) });
++    }),
++  pauseTimer: (nowMs) =>
++    set((state) => (state.timer?.startedAt ? bump(state, { timer: pauseRunning(state.timer, nowMs) }) : {})),
++  resumeTimer: (nowMs) =>
++    set((state) => (state.timer && !state.timer.startedAt ? bump(state, { timer: resumeRunning(state.timer, nowMs) }) : {})),
++  stopTimer: (nowMs) => set((state) => (state.timer ? bump(state, commitTimer(state, nowMs)) : {})),
+   toggleDo: (date, id) =>
+     set((state) => {
+       const day = { ...(state.doChecks[date] ?? {}) };
+diff -ruN a/lifeos-app-main/src/lib/lifeos/timer.test.ts b/lifeos-app-main/src/lib/lifeos/timer.test.ts
+--- a/lifeos-app-main/src/lib/lifeos/timer.test.ts	1970-01-01 05:30:00.000000000 +0530
++++ b/lifeos-app-main/src/lib/lifeos/timer.test.ts	2026-11-26 10:02:19.817692172 +0530
+@@ -0,0 +1,125 @@
++import { describe, it } from "node:test";
++import assert from "node:assert/strict";
++import { createBlank, type Habit, type LifeData, type RunningTimer, type Todo } from "./model";
++import {
++  commitTimer,
++  formatClock,
++  isTimedHabit,
++  MAX_TIMER_SECONDS,
++  newTimer,
++  pauseTimer,
++  resumeTimer,
++  timerSeconds,
++} from "./timer";
++
++const T0 = Date.parse("2026-11-26T10:00:00.000Z");
++const at = (seconds: number) => T0 + seconds * 1000;
++const DAY = "2026-11-26";
++
++const study: Habit = { id: "study", label: "Study", since: "2026-11-01", amount: { unit: "min", target: 30 } };
++const pages: Habit = { id: "pages", label: "Read", since: "2026-11-01", amount: { unit: "pages" } };
++
++function timerOf(overrides: Partial<RunningTimer> = {}): RunningTimer {
++  return { kind: "habit", id: "study", date: DAY, bankedSeconds: 0, startedAt: new Date(T0).toISOString(), ...overrides };
++}
++
++function dataWith(overrides: Partial<LifeData> = {}): LifeData {
++  return { ...createBlank("2026-11-01"), dos: [study, pages], ...overrides };
++}
++
++describe("timed habits", () => {
++  it("a minutes unit can be timed; other units and plain habits cannot", () => {
++    assert.equal(isTimedHabit(study), true);
++    assert.equal(isTimedHabit({ ...study, amount: { unit: "Minutes" } }), true);
++    assert.equal(isTimedHabit({ ...study, amount: { unit: "mins" } }), true);
++    assert.equal(isTimedHabit(pages), false);
++    assert.equal(isTimedHabit({ id: "x", label: "Walk" }), false);
++  });
++});
++
++describe("elapsed time", () => {
++  it("counts from the start while running", () => {
++    assert.equal(timerSeconds(timerOf(), at(90)), 90);
++  });
++
++  it("stops counting while paused, and carries on from the pause on resume", () => {
++    const paused = pauseTimer(timerOf(), at(60));
++    assert.equal(paused.startedAt, null);
++    assert.equal(timerSeconds(paused, at(600)), 60); // paused: no time added
++    const running = resumeTimer(paused, at(600));
++    assert.equal(timerSeconds(running, at(630)), 90); // 60 banked + 30 running
++  });
++
++  it("a clock that runs backwards counts as zero, never negative", () => {
++    assert.equal(timerSeconds(timerOf(), at(-100)), 0);
++  });
++
++  it("one run is capped at 12 hours", () => {
++    assert.equal(timerSeconds(timerOf(), at(10 * MAX_TIMER_SECONDS)), MAX_TIMER_SECONDS);
++  });
++
++  it("pausing or resuming twice changes nothing", () => {
++    const timer = timerOf();
++    assert.equal(pauseTimer(pauseTimer(timer, at(10)), at(20)).bankedSeconds, 10);
++    assert.equal(resumeTimer(timer, at(5)), timer);
++  });
++
++  it("a new task timer does not count minutes toward a day", () => {
++    assert.equal(newTimer("task", "t1", DAY, T0).date, "");
++    assert.equal(newTimer("habit", "study", DAY, T0).date, DAY);
++  });
++});
++
++describe("clock display", () => {
++  it("shows minutes and seconds, adding hours from one hour up", () => {
++    assert.equal(formatClock(0), "0:00");
++    assert.equal(formatClock(42), "0:42");
++    assert.equal(formatClock(3729), "1:02:09");
++    assert.equal(formatClock(-5), "0:00");
++  });
++});
++
++describe("stopping the timer", () => {
++  it("adds the minutes to a timed habit's day, and marks it done at the target", () => {
++    const data = dataWith({ timer: timerOf() });
++    const patch = commitTimer(data, at(15 * 60));
++    assert.equal(patch.timer, null);
++    assert.equal(patch.doChecks?.[DAY]?.study?.value, 15);
++    assert.equal(patch.doChecks?.[DAY]?.study?.done, false);
++
++    const full = commitTimer(dataWith({ timer: timerOf() }), at(30 * 60));
++    assert.equal(full.doChecks?.[DAY]?.study?.done, true);
++  });
++
++  it("adds to what the day already holds", () => {
++    const data = dataWith({
++      timer: timerOf(),
++      doChecks: { [DAY]: { study: { done: false, notes: "morning", value: 10 } } },
++    });
++    const patch = commitTimer(data, at(5 * 60));
++    assert.equal(patch.doChecks?.[DAY]?.study?.value, 15);
++    assert.equal(patch.doChecks?.[DAY]?.study?.notes, "morning");
++  });
++
++  it("adds tracked seconds to a task", () => {
++    const todo: Todo = { id: "t1", title: "Essay", done: false, priority: "medium", due: "", notes: "", created: DAY, doneOn: "" };
++    const data = dataWith({ todos: [todo], timer: newTimer("task", "t1", "", T0) });
++    const patch = commitTimer(data, at(120));
++    assert.equal(patch.todos?.[0]?.trackedSeconds, 120);
++    assert.equal(patch.timer, null);
++  });
++
++  it("under a second is discarded, and nothing else changes", () => {
++    const patch = commitTimer(dataWith({ timer: timerOf() }), at(0.4));
++    assert.deepEqual(patch, { timer: null });
++  });
++
++  it("a habit that is no longer timed discards the time", () => {
++    const patch = commitTimer(dataWith({ timer: timerOf({ id: "pages" }) }), at(600));
++    assert.deepEqual(patch, { timer: null });
++  });
++
++  it("does nothing with no timer", () => {
++    assert.deepEqual(commitTimer(dataWith(), at(600)), {});
++  });
++});
+diff -ruN a/lifeos-app-main/src/lib/lifeos/timer.ts b/lifeos-app-main/src/lib/lifeos/timer.ts
+--- a/lifeos-app-main/src/lib/lifeos/timer.ts	1970-01-01 05:30:00.000000000 +0530
++++ b/lifeos-app-main/src/lib/lifeos/timer.ts	2026-11-26 10:02:19.817682146 +0530
+@@ -0,0 +1,76 @@
++import { amountDone, type Habit, type LifeData, type RunningTimer } from "./model";
++
++/**
++ * The timer (v2.3). Pure functions only: the store, the bar and the buttons all call these.
++ *
++ * A timed habit is a do-habit whose unit is minutes (e.g. "Study: min"). Stopping the timer adds the minutes to
++ * that day's amount, through the same rule as typing a number. A task keeps its own tracked seconds.
++ */
++
++/** A single run can never count more than 12 hours, so a timer left running by mistake cannot add days. */
++export const MAX_TIMER_SECONDS = 12 * 60 * 60;
++
++const MINUTE_UNIT = /^min(ute)?s?$/i;
++
++/** A do-habit that can be timed: it has an amount, and the unit is minutes. */
++export function isTimedHabit(habit: Habit): boolean {
++  return !!habit.amount && MINUTE_UNIT.test(habit.amount.unit.trim());
++}
++
++/** Seconds on the timer now. A clock that runs backwards counts as zero, never negative. */
++export function timerSeconds(timer: RunningTimer, nowMs: number): number {
++  const running = timer.startedAt ? Math.max(0, (nowMs - Date.parse(timer.startedAt)) / 1000) : 0;
++  return Math.min(MAX_TIMER_SECONDS, Math.max(0, timer.bankedSeconds) + running);
++}
++
++export function newTimer(kind: RunningTimer["kind"], id: string, date: string, nowMs: number): RunningTimer {
++  return { kind, id, date: kind === "habit" ? date : "", bankedSeconds: 0, startedAt: new Date(nowMs).toISOString() };
++}
++
++/** Stop counting but keep the time so far. */
++export function pauseTimer(timer: RunningTimer, nowMs: number): RunningTimer {
++  if (!timer.startedAt) return timer;
++  return { ...timer, bankedSeconds: timerSeconds(timer, nowMs), startedAt: null };
++}
++
++/** Carry on counting from where the pause left off. */
++export function resumeTimer(timer: RunningTimer, nowMs: number): RunningTimer {
++  if (timer.startedAt) return timer;
++  return { ...timer, startedAt: new Date(nowMs).toISOString() };
++}
++
++/** 0:42 under an hour, 1:02:09 from an hour up. */
++export function formatClock(seconds: number): string {
++  const total = Math.floor(Math.max(0, seconds));
++  const h = Math.floor(total / 3600);
++  const m = Math.floor((total % 3600) / 60);
++  const s = total % 60;
++  const pad = (n: number) => String(n).padStart(2, "0");
++  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
++}
++
++/**
++ * Stop the timer and put its time where it belongs. Returns the LifeData fields to change.
++ * Under one second is discarded. A habit that is gone or no longer timed discards it too.
++ */
++export function commitTimer(data: LifeData, nowMs: number): Partial<LifeData> {
++  const timer = data.timer;
++  if (!timer) return {};
++  const seconds = timerSeconds(timer, nowMs);
++  if (seconds < 1) return { timer: null };
++
++  if (timer.kind === "task") {
++    const todos = data.todos.map((todo) =>
++      todo.id === timer.id ? { ...todo, trackedSeconds: (todo.trackedSeconds ?? 0) + Math.round(seconds) } : todo,
++    );
++    return { timer: null, todos };
++  }
++
++  const habit = data.dos.find((h) => h.id === timer.id);
++  if (!habit?.amount || !isTimedHabit(habit)) return { timer: null };
++  const day = data.doChecks[timer.date] ?? {};
++  const prev = day[timer.id] ?? { done: false, notes: "" };
++  const value = Math.min(1_000_000, Math.round(((prev.value ?? 0) + seconds / 60) * 100) / 100);
++  const next = { ...prev, value, done: amountDone(habit.amount, value) };
++  return { timer: null, doChecks: { ...data.doChecks, [timer.date]: { ...day, [timer.id]: next } } };
++}
+diff -ruN a/lifeos-app-main/src/lib/lifeos/validate-timer.test.ts b/lifeos-app-main/src/lib/lifeos/validate-timer.test.ts
+--- a/lifeos-app-main/src/lib/lifeos/validate-timer.test.ts	1970-01-01 05:30:00.000000000 +0530
++++ b/lifeos-app-main/src/lib/lifeos/validate-timer.test.ts	2026-11-26 10:02:19.817649082 +0530
+@@ -0,0 +1,55 @@
++import { describe, it } from "node:test";
++import assert from "node:assert/strict";
++import { createBlank } from "./model";
++import { parseLifeData, selectData } from "./validate";
++
++const base = {
++  ...createBlank("2026-11-01"),
++  dos: [{ id: "study", label: "Study", amount: { unit: "min" } }],
++  todos: [{ id: "t1", title: "Essay", done: false, priority: "medium", due: "", notes: "", created: "2026-11-26", doneOn: "" }],
++};
++
++describe("timer in the synced log", () => {
++  it("keeps a valid habit timer", () => {
++    const timer = { kind: "habit", id: "study", date: "2026-11-26", bankedSeconds: 60, startedAt: "2026-11-26T10:00:00.000Z" };
++    assert.deepEqual(parseLifeData({ ...base, timer }).timer, timer);
++  });
++
++  it("keeps a paused task timer", () => {
++    const timer = { kind: "task", id: "t1", date: "", bankedSeconds: 30, startedAt: null };
++    assert.deepEqual(parseLifeData({ ...base, timer }).timer, timer);
++  });
++
++  it("drops a timer for a habit or task that no longer exists, instead of failing the log", () => {
++    const gone = { kind: "habit", id: "nope", date: "2026-11-26", bankedSeconds: 0, startedAt: null };
++    assert.equal(parseLifeData({ ...base, timer: gone }).timer, null);
++    const goneTask = { kind: "task", id: "nope", date: "", bankedSeconds: 0, startedAt: null };
++    assert.equal(parseLifeData({ ...base, timer: goneTask }).timer, null);
++  });
++
++  it("drops a damaged timer and caps absurd banked time", () => {
++    assert.equal(parseLifeData({ ...base, timer: { kind: "habit", id: "study", date: "soon" } }).timer, null);
++    assert.equal(parseLifeData({ ...base, timer: "yes" }).timer, null);
++    const huge = { kind: "task", id: "t1", date: "", bankedSeconds: 1e12, startedAt: "not a date" };
++    const parsed = parseLifeData({ ...base, timer: huge });
++    assert.equal(parsed.timer?.startedAt, null);
++    assert.equal(parsed.timer?.bankedSeconds, 12 * 60 * 60);
++  });
++
++  it("logs saved before v2.3 have no timer and still parse", () => {
++    const { timer: _ignored, ...old } = createBlank("2026-11-01");
++    assert.equal(parseLifeData(old).timer, null);
++  });
++
++  it("keeps tracked seconds on a task and drops zero", () => {
++    const tracked = parseLifeData({ ...base, todos: [{ ...base.todos[0], trackedSeconds: 125.4 }] });
++    assert.equal(tracked.todos[0]?.trackedSeconds, 125);
++    const none = parseLifeData({ ...base, todos: [{ ...base.todos[0], trackedSeconds: 0 }] });
++    assert.equal(none.todos[0]?.trackedSeconds, undefined);
++  });
++
++  it("the timer is part of what gets saved", () => {
++    const state = parseLifeData({ ...base, timer: { kind: "task", id: "t1", date: "", bankedSeconds: 5, startedAt: null } });
++    assert.equal(selectData(state).timer?.bankedSeconds, 5);
++  });
++});
+diff -ruN a/lifeos-app-main/src/lib/lifeos/validate.ts b/lifeos-app-main/src/lib/lifeos/validate.ts
+--- a/lifeos-app-main/src/lib/lifeos/validate.ts	2026-11-26 10:02:19.812644375 +0530
++++ b/lifeos-app-main/src/lib/lifeos/validate.ts	2026-11-26 10:02:19.817705331 +0530
+@@ -18,8 +18,10 @@
+   type JournalEntry,
+   type LifeData,
+   type MonthReflection,
++  type RunningTimer,
+ } from "./model";
+ import { TODO_REPEATS, type Repeat } from "./recurrence";
++import { MAX_TIMER_SECONDS } from "./timer";
+ 
+ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+ const MONTH_KEY = /^\d{4}-\d{2}$/;
+@@ -210,6 +212,10 @@
+     const done = item.done === true;
+     const repeat = TODO_REPEATS.includes(item.repeat as Repeat) ? (item.repeat as Repeat) : undefined;
+     const spawned = clip(item.spawned, 64);
++    const tracked =
++      typeof item.trackedSeconds === "number" && Number.isFinite(item.trackedSeconds) && item.trackedSeconds > 0
++        ? Math.min(10_000_000, Math.round(item.trackedSeconds))
++        : 0;
+     todos.push({
+       id,
+       title,
+@@ -221,11 +227,31 @@
+       doneOn: done ? date(item.doneOn) : "",
+       ...(repeat ? { repeat } : {}),
+       ...(done && repeat && spawned ? { spawned } : {}),
++      ...(tracked ? { trackedSeconds: tracked } : {}),
+     });
+   }
+   return todos;
+ }
+ 
++/** The running timer (v2.3). A damaged or stale one is dropped, so it can never block saving the whole log. */
++function parseTimer(value: unknown, habitIds: Set<string>, todoIds: Set<string>): RunningTimer | null {
++  if (!isRecord(value)) return null;
++  const id = clip(value.id, 64);
++  const kind = value.kind === "habit" || value.kind === "task" ? value.kind : null;
++  if (!kind || !id) return null;
++  if (kind === "habit" && !habitIds.has(id)) return null;
++  if (kind === "task" && !todoIds.has(id)) return null;
++  const date = clip(value.date, 10);
++  if (kind === "habit" && !ISO_DATE.test(date)) return null;
++  const bankedSeconds =
++    typeof value.bankedSeconds === "number" && Number.isFinite(value.bankedSeconds)
++      ? Math.min(MAX_TIMER_SECONDS, Math.max(0, value.bankedSeconds))
++      : 0;
++  const startedAt =
++    typeof value.startedAt === "string" && Number.isFinite(Date.parse(value.startedAt)) ? value.startedAt : null;
++  return { kind, id, date: kind === "habit" ? date : "", bankedSeconds, startedAt };
++}
++
+ function parseFreezeDays(value: unknown): Record<string, boolean> {
+   if (value == null) return {};
+   if (!isRecord(value)) throw new Error("Invalid freeze days.");
+@@ -303,16 +329,18 @@
+     typeof input.programDays === "number" && input.programDays >= 7 && input.programDays <= 366
+       ? Math.round(input.programDays)
+       : DEFAULT_PROGRAM_DAYS;
++  const todos = parseTodos(input.todos);
+   return {
+     dos,
+     donts,
++    timer: parseTimer(input.timer, new Set(dos.map((habit) => habit.id)), new Set(todos.map((todo) => todo.id))),
+     doChecks: parseDoChecks(input.doChecks, new Set(dos.map((habit) => habit.id))),
+     dontChecks: parseDontChecks(input.dontChecks, new Set(donts.map((habit) => habit.id))),
+     journals: parseJournals(input.journals),
+     oneLines: parseLines(input.oneLines),
+     goals: parseGoals(input.goals),
+     reflections: parseReflections(input.reflections),
+-    todos: parseTodos(input.todos),
++    todos,
+     freezeDays: parseFreezeDays(input.freezeDays),
+     weeklyReviews: parseWeeklyReviews(input.weeklyReviews),
+     programStart,
+@@ -337,5 +365,6 @@
+     programDays: state.programDays,
+     pastPrograms: state.pastPrograms,
+     freezeDays: state.freezeDays,
++    timer: state.timer,
+   };
+ }
+diff -ruN a/lifeos-app-main/src/lib/version.ts b/lifeos-app-main/src/lib/version.ts
+--- a/lifeos-app-main/src/lib/version.ts	2026-11-26 10:02:19.812781112 +0530
++++ b/lifeos-app-main/src/lib/version.ts	2026-11-26 10:02:19.817777707 +0530
+@@ -1,2 +1,2 @@
+ /** Shown at the bottom of Account & settings so you can tell which release your phone is running. */
+-export const APP_VERSION = "2.2.0";
++export const APP_VERSION = "2.3.0";

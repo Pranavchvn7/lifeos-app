@@ -2,6 +2,16 @@
 
 Versions are numbered `major.minor.patch`. The version also shows at the bottom of Account & settings.
 
+## v2.3.0 - 2026-11-26 - Timer for timed habits and tasks
+Fourth release of the daily-planner update series.
+- **Timer** with start, pause, resume and stop. It keeps running if you close the app, and it shows as a bar above every page until you stop it.
+- **Timed habits**: a habit whose unit is minutes (for example "Study: min") can be timed. Stopping the timer adds the minutes to that day's total, the same as typing them in, so the Today screen, the habit's dashboard and the streak all pick them up.
+- **Tasks**: any open to-do can be timed. The tracked time shows on the task.
+- **Sync**: the timer is part of your saved log, so it appears on your other devices. Only one timer runs at a time; starting another one saves the running one first.
+- **Limits**: one run counts at most 12 hours, so a timer left running by mistake cannot add days. A run under one second is discarded.
+- Data: the log gains a timer field and a tracked-time field on tasks. Logs saved before this version load as before, and backups made before it restore as before.
+- Unit tests added for the timer, its saving rules, the log checks and merging the timer across devices.
+
 ## v2.2.0 - 2026-11-25 - Habits tab and habit dashboards
 Third release of the daily-planner update series.
 - **Habits tab** (new, next to Today in the navigation). Each habit with its current streak and its last seven days. Tap one to open it.

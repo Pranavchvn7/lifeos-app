@@ -22,6 +22,7 @@ import { BootScreen } from "./boot-screen";
 import { BottomNav } from "./bottom-nav";
 import { NAV_ITEMS, navIdForPath, type NavItem } from "./nav-items";
 import { ShellContext } from "./shell-context";
+import { TimerBar } from "./timer-controls";
 
 export function LifeApp({ userId }: { userId: string }) {
   const ready = useLife((state) => state.ready && state.ownerId === userId);
@@ -253,6 +254,7 @@ export function LifeApp({ userId }: { userId: string }) {
 
           <div className="min-w-0">
             <AppHeader theme={theme} onToggleTheme={toggleTheme} onSettings={goSettings} saveNote={saveNoteText(saveState)} />
+            <TimerBar />
             <main className="px-4 py-5 pb-28 md:px-8 md:py-8 md:pb-10">
               <Outlet />
             </main>
